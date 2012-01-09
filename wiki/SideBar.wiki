@@ -1,0 +1,36 @@
+#summary Ordered navigation through all public pages.
+#labels Overview
+
+====Navigation====
+
+ * Features
+ * [History]
+ * [Philosophy]
+
+ * [Tamarin]
+   * [Tamarin#Directory_Structure Directory Structure]
+   * [Tamarin#Submission_and_Grading_Process Submission and Grading Process]
+
+<wiki:comment>
+ * Tamarin Components
+</wiki:comment>
+  
+ * Installation
+   * Security
+   * Multiple Tamarins
+ * Configuration  <wiki:comment>(tamarin.py)</wiki:comment>
+ * Common Tasks
+<wiki:comment>
+   -defining assignments
+   -"missing assignments" - check upload/
+   -manually submitting an assignment for a student
+   -regrading an assignment
+</wiki:comment>
+    
+ * Graders  <wiki:comment>how they work in general</wiki:comment>
+ * TamarinGraderJava
+   * Writing Graders
+   * API
+
+ * Images
+ * FAQs
