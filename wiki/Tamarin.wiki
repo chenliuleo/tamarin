@@ -112,7 +112,7 @@ We'll assume here that the student selects the "submit an assignment" link.
 
 ====Step 2: Upload a submission (Student; upload.py)====
 
-The student will then be asked for the file she wants to upload.  This filename must include the student's Tamarin username and the assignment she is submitting for.  For example, if Jane Doe (username: janedoe) is submitting a Java file for A02, her file must be named JanedoeA02.java.  (The initial capital letter is requirement for Java class/file names; other file extensions, such as .c or .txt, may not have this requirement.)
+The student will then be asked for the file she wants to upload.  This filename must include the student's Tamarin username and the assignment she is submitting for.  For example, if Jane Doe (username: janedoe) is submitting a Java file for A02, her file must be named !JanedoeA02.java.  (The initial capital letter is requirement for Java class/file names; other file extensions, such as .c or .txt, may not have this requirement.)
 
 The student must also enter her Tamarin password.
 
@@ -154,7 +154,7 @@ The details/output of the current or latest gradepipe session can be found in ta
 As it runs, the Tamarin grade pipe will copy each new submission into tamarin/gradezone/.  For each submission, 
 it will also copy all the files from the tamarin/graders/ directory and from the appropriate tamarin/graders/A## directory into the gradezone.  Based on the submitted file's extension, it will run the associated compile command (if any).  It will then invoke the copied assignment-specific grader to do the grading.
 
-Once compiling and grading are complete, Tamarin saves the output of the compiling and grading steps into a text file with a similar name to the submitted file.  For example, if the graded file is named JanedoeA02-20120108-1742.java and the grader returns a grade of 3.5 points, the grader output will be saved in JanedoeA02-20120108-1742-3.5.txt.
+Once compiling and grading are complete, Tamarin saves the output of the compiling and grading steps into a text file with a similar name to the submitted file.  For example, if the graded file is named !JanedoeA02-20120108-1742.java and the grader returns a grade of 3.5 points, the grader output will be saved in !JanedoeA02-20120108-1742-3.5.txt.
 
 The two files are then moved into the appropriate tamarin/graded/A##-.../ directory.
 
@@ -169,13 +169,13 @@ To do this, the Teacher uses the Master View (masterview.py) to examine the subm
 
   [http://zach.tomaszewski.name/tamarin/screenshot/masterview.py.png masterview.py screenshot: home page]
   
-  [http://zach.tomaszewski.name/tamarin/screenshot/masterview.py.png masterview.py screenshot: viewing all submissions for A00b]
+  [http://zach.tomaszewski.name/tamarin/screenshot/masterview.py-assignment-brief.png masterview.py screenshot: viewing all submissions for A00b]
 
 For each submitted file, the Teacher can add any comments, change the grader-assigned grade, and/or mark the grade as human verified.  
 
-  [http://zach.tomaszewski.name/tamarin/screenshot/masterview.py.png masterview.py screenshot: verifying a submission]
+  [http://zach.tomaszewski.name/tamarin/screenshot/masterview.py-submission.png masterview.py screenshot: verifying a submission]
 
-Marking the grade as human verified adds a -H to the grader output filename, as in JanedoeA02-20120108-1742-3.5-H.txt.  This has various effects, such as letting students know that their grade is correct and (usually) preventing the student from resubmitting again for that assignment.
+Marking the grade as human verified adds a -H to the grader output filename, as in !JanedoeA02-20120108-1742-3.5-H.txt.  This has various effects, such as letting students know that their grade is correct and (usually) preventing the student from resubmitting again for that assignment.
 
 For more information, see UsingMasterView.
 
@@ -184,11 +184,13 @@ For more information, see UsingMasterView.
 
 At any time, a student may view her previous submission by following the "view your submissions" link from index.html.  This takes the student to view.py, where she must enter her username and password.
 
-  [http://zach.tomaszewski.name/tamarin/screenshot/view.py.png view.py screenshot]
+  [http://zach.tomaszewski.name/tamarin/screenshot/view.py-login.png view.py screenshot: login]
 
 view.py and masterview.py both use the same displaycore.py code, and so many of the views are the same (or at least very similar).  For example, clicking on the button for a given submission will take the student to a submission view that shows her original code, the automated output from the compiling and grading steps, and any comments from the human Teacher.
 
-  [http://zach.tomaszewski.name/tamarin/screenshot/view.py.png view.py submission: a graded submission]
+  [http://zach.tomaszewski.name/tamarin/screenshot/view.py.png view.py screenshot: all submissions]
+
+  [http://zach.tomaszewski.name/tamarin/screenshot/view.py-submission.png view.py screenshot: a single graded submission]
 
 <br>
 And that concludes this overview of Tamarin's significant parts.
