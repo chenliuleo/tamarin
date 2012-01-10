@@ -3,7 +3,7 @@
 ==Philosophy==
 
 
-====Automating Grading====
+====Automated Grading====
 
 When I initially envisioned Tamarin, my hope was to completely automate grading. I have since come to realize that this is both impossible and undesirable.
 
