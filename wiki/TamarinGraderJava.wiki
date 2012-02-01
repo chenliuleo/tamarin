@@ -1,4 +1,4 @@
-#summary How to use !TamarinGrader.java to write a grader
+#summary How to use TamarinGrader.java to write a grader
 #labels Design,UserSupport,RoughDraft
 
 ==!TamarinGrader: Java==
@@ -26,7 +26,7 @@ As a Teacher, one of your tasks is to write this A##Grader.class program for eac
 
 The methods and classes of !TamarinGrader.java are extensively documented.  You can run javadoc to extract this information:
 {{{
-  javadoc -d docs !TamarinGrader.java
+  javadoc -d docs TamarinGrader.java
 }}}
 This places the created HTML documentation pages in a docs/ subdirectory.  (NOTE: Once all the Tamarin code has been uploaded and !TamarinGrader.java cleaned up a bit, the extracted documentation will be hosted online here somewhere too.)
 
@@ -57,7 +57,7 @@ public class A00Grader {
 }
 }}}
 
-It would produce output the following output for a working submission:
+It would produce the following output for a working submission:
 
 {{{
 ## Uploaded file                                            (0.5 points) [PASS]
@@ -95,7 +95,7 @@ Example:
   TamarinGrader grader = TamarinGrader.init(args);
 }}}
 
-The returned !TamarinGrader object contains a number of [#!TamarinGrader_Variables variables] and is the basis for all other !TamarinGrader methods.  All examples below will assume the same "grader" variable name as shown in the example here.
+The returned !TamarinGrader object contains a number of [#TamarinGrader_Variables variables] and is the basis for all other !TamarinGrader methods.  All examples below will assume the same "grader" variable name as shown in the example here.
 
 
 ====!TamarinGrader Variables====
@@ -109,7 +109,7 @@ File file
 String className
 Class _class
 }}}
-These variables all refer to the submitted file that is to be graded.  The value of the first two variables are taken from the arguments to init: the name file to grade and whether it compiled.  From this, the grader computes a reference to the File itself, computes the expected classname from the filename, and (if compiled), loads that Class.  
+These variables all refer to the submitted file that is to be graded.  The value of the first two variables are taken from the arguments to <tt>init</tt>: the name file to grade and whether it compiled.  From this, the grader computes a reference to the File itself, computes the expected classname from the filename, and (if compiled), loads that Class.  
 
 Other than <tt>compiled</tt>, these variables rarely need to be used.
 
@@ -147,7 +147,7 @@ Whenever a grader method is invoked that does pattern matching, this variable is
 double epsilon (1e-9)
 String markEpsilon (" ~");
 }}}
-The amount of error to allow when comparing floats or doubles to equality.  This is often important when comparing expected and actual values in grading.  If two floating point values were not == but found to be equal after accounting for the epsilon value, <tt>markEpsilon</tt> is appended to the output for the test (in cases when there is output).
+The amount of error to allow when comparing floats or doubles for equality.  This is often important when comparing expected and actual values in grading.  If two floating point values were not == but found to be equal after accounting for the epsilon value, <tt>markEpsilon</tt> is appended to the output for the test (in cases when there is output).
 
 {{{
 String[] errorMesg
@@ -158,7 +158,7 @@ A number of words that commonly appear in error messags but not in prompts or re
 int timeout (20000)
 int cleanupTimeout (200)
 }}}
-For security, the grader always invokes methods or constructors of the submitted class in a separate thread.  By default, this thread is given only 20,000 milliseconds (0.2 seconds) to complete (<tt>timeout</tt>).  At that time, the thread is politely asked to terminate.  If it does not, it is forcibly stopped after the <tt>cleanupTimeout</tt> delay.  This ends infinite loops, hangs from the use of GUI components, etc.  
+For security, the grader always invokes methods or constructors of the submitted class in a separate thread.  By default, this thread is given only 20,000 milliseconds (0.2 seconds) to complete (<tt>timeout</tt>).  At that time, the thread is politely asked to terminate.  If it does not, it is forcibly stopped after the <tt>cleanupTimeout</tt> delay.  This ends infinite loops, hangs due to the inappropriate use of GUI components, etc.  
 
 The <tt>timeout</tt> value may occasonally need to be adjusted on a slower or busy machine or when testing methods that often take a long time (such as searches, sorts, etc).
 
@@ -177,36 +177,65 @@ When using <tt>print</tt>, the printed line begins with "## "; that line should 
 {{{
 void printOutput()
 }}}
-Prints whatever output is current in stored in <tt>grader.out</tt>, which is equal to whatever the submitted program printed during the last method that was invoked on it.
+Prints whatever output is current in stored in <tt>grader.out</tt>. This is normally equal to whatever was printed by the last method of the submitted program that was invoked on the grader.
 
 
 ====Setting Input====
 
-As mentioned...
+As mentioned, input and output streams are redirected whenever the grader invokes one of the submitted program's methods.  Set <tt>grader.in</tt> to whatever input you want the submitted program to read from System.in.  
 
-crash with exception when out of input
+For example, suppose you are testing a program that reads in numbers from the keyboard until the user enters a empty line.  You could set grader.in as follows to have the tested program read in 5, 7, and 8.
+{{{
+  grader.in = "5\n7\n\8\n\n";
+}}}
+If the tested method does not read in all the input, the unread input will remain in <tt>grader.in</tt> after the method completes.  If the tested method attempts to read more input than what is provided, it usually results in the tested method throwing an exception.  For example, if the tested method is using a <tt>java.util.Scanner</tt> to read from System.in, it will produce a <tt>!NoSuchElementException</tt> when it runs out of input.
+
 
 ====Running the Submitted Program====
 
+{{{
 boolean runMain(String... args)
-          Runs the main method of _class with the given arguments (which can be empty/none).
+}}}
 
+This method will reload the submitted class and then invoke its main method, passing any arguments given as command line arguments.  Streams are redirected as normal and the method is terminated if it runs for too long.
+
+Reloading the submitted class will reset any static/class variables in that class.  This simulates a fresh start of the JVM, which reflects normal use of the submitted program.  However, for technical reasons (see the !JavaDocs for !TamarinGrader.java's <tt>reloadClass</tt> variable for more detail), reloading a class means that the class and any invoked methods must be public for the !TamarinGrader to find them after the reload.  Thus, <tt>runMain</tt> will fail if the submitted program's primary class or its main method is not public.
 
 
 ====Examining Output====
 
+{{{
 boolean hasOutput()
-Returns true if something is in this.out (ie, whether a tested program printed at least one character).
+}}}
+
+Returns true if there are any characters in <tt>grader.out</tt>.  This normally indicates whether a tested program printed at least one character from the last method that was invoked on it.
+
 
 {{{
+boolean isInOutput(String... regexes)
 boolean areInOutput(String... regexes)
 int countInOutput(String... regexes)
 int findInOutput(String... regexes)
-boolean isInOutput(String... regexes)
 }}}
 
-!TamarinGrader.Lines 	getOutputLines()
-   Returns all the lines of output in a Lines object for easy filtering based on regex pattern matching.
+These convenience methods all examine the contents of <tt>grader.out</tt>.  They all take one or more regular expressions (regexes).  (See <tt>java.util.regex.Pattern</tt> for more on regular expressions under Java.)
+
+<tt>isInOutput</tt> returns true if the output contains a match for ANY of the given regular expression.  <tt>areInOutput</tt> returns true only if ALL of the given regular expressions are found somewhere in the output.  If given only a single regular expression, these two methods are equivalent.  
+
+<tt>countInOutput</tt> will return the total number of matches found for all of the given regexes.  That is, if the output contains two matches for the first regex and and three matches for the second, <tt>countInOutput()</tt> will return 5.
+
+<tt>findInOutput</tt> will return the number of the given regexes that resulted in at least one match.  For example, if given 3 regexes, and the first results in 3 matches, the second results in 0 matches, and the third gives 1 match, <tt>findInOutput</tt> will return 2.  This is because two of the three regexes resulted in at least one match.
+
+Most grading of a program's output will rely on these four methods.  Because it is easier to spot when Tamarin removes points when it shouldn't (rather than times when it gives points for incorrect code), it is better to make your regexes too specific than too general.  
+
+Also, remember that regexes are usually tested for independently by these these method and so can overlap.  For example, suppose that, given the input you have provided, a submitted program should provide 14 and 4 as output.  You could use <tt>grader.findInOuptut("14", "4")</tt> to find if both of these values occur in the output somewhere.  However, because 14 includes 4, note that this test will always return 2 even if the output contains only 14.  A better test would be <tt>grader.findInOuptut("14", "\\b4")</tt>, where \b is a word boundary.  (Note that any backslash in a Java regex must be escaped with an extra backslash.)  <tt>grader.findInOuptut("14", "[^1]4")</tt> would also work, where the 4 in the second regex may not be preceded by a 1.
+
+{{{
+TamarinGrader.Lines getOutputLines()
+}}}
+Returns all the lines of output in a Lines object for easy filtering based on regex pattern matching.
+Advanced.
+
 
 
 ====Examing Source Code====
