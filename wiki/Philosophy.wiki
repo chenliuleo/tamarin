@@ -13,7 +13,7 @@ Automation is undesirable because grading is an essential part of teaching.  It'
 
 Think about it: if your feedback could really be reproduced by a few hundred lines of code, what value are you currently providing as a teacher?  Could you really be replaced by a recorded lecture, standardized multiple choice tests, and an automated grader? Or are you providing something more than that?
 
-Yet Tamarin still has great value.  Its goal is not to automate or replace, but rather to aid and support the human grader  It does this because it:
+Yet Tamarin still has great value.  Its goal is not to automate or replace, but rather to aid and support the human grader.  It does this because it:
 
   * Automates the submission process. This saves you time and prevents problems like lost emails or missing attachments. 
   * Provides a consistent first pass. Tamarin doesn't get tired or sloppy; it grades all submissions in the same way.
@@ -29,7 +29,7 @@ Tamarin has a very simple design in terms of how it stores data:
   * Details of an assignment are all in the name of the folder created for that assignment.
   * Grading results for a submission are in an accompanying text file.
 
-The use of folder structure (rather than, for example, a database) means it is easy to manually muck around with Tamarin files using existing tools when you have to.  Want to regrade an assignment?  Just drop it back into the submitted folder and run it through the grader again.  Want to extend an assignment?  Just rename the folder that contains the submissions for that assignment.  Want to delete a submission?  Just delete the file.
+The use of folder structure (rather than, for example, a database) means it is easy to manually muck around with Tamarin files using existing tools when you have to.  Want to regrade an assignment?  Just drop it back into the submitted folder and run it through the grader again.  Want to extend an assignment deadline?  Just rename the folder that contains the submissions for that assignment.  Want to delete a submission?  Just delete the file.
 
 This simplicity and transparency is one of Tamarin's strengths.
 
