@@ -1,4 +1,5 @@
 #summary Why and how Tamarin came to be.
+#labels Overview
 
 ==History==
 =====(by Zach Tomaszewski)=====
@@ -15,11 +16,9 @@ I designed and wrote Tamarin over the summer of 2008 while I was on break.
 
 It was designed to grade small Java assignments on a [http://snarkdreams.com/personal/tinker/  very low-end webserver]: an old 75Mhz i486 laptop with 32MB of RAM.  It was developed on a WindowsXP machine but deployed on a Debian Linux machine, so it has always been cross-platform.
 
-In Fall 2008, Tamarin only accepted and stored submissions; I ran a second Tamarin instance on my home machine for grading. The next semester, Tamarin graded submissions as they came in.
+Tamarin has been in continuous use since Fall 2008, handling up to 150 students each semester.  Initially, Tamarin only accepted and stored submissions; I ran a second Tamarin instance on my home machine for grading. The next semester, Tamarin graded submissions as they came in. Since Fall 2009, another TA and instructor have also been using Tamarin. 
 
-In Fall 2009, another TA and instructor also started using Tamarin for the same set of assignments.  As of Dec 2011, Tamarin has been in continuous use for 3.5 years, handling up to 150 students each semester.
-
-Now that it has proven useful, it's time to open Tamarin up to a larger community.
+Now that it has proven useful, it is time to open Tamarin up to an even larger community.
 
 Tamarin's "backronym" is the Teaching Assistant's Menial ARtificial INtelligence.
 
