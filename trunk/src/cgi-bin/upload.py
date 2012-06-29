@@ -1,4 +1,4 @@
-#!python
+#!python3
 
 ##
 ## upload.py 
@@ -6,8 +6,8 @@
 ##
 ## If given no arguments, will display the upload form.
 ##
-## Otherwise, validates an uploaded source code file, checking that it has a 
-## valid file name, valid ASCII contents, isn't too large, etc.
+## Otherwise, validates an uploaded source code file, checking that it
+## has a valid file name, valid ASCII contents, isn't too large, etc.
 ##
 ## If anything is wrong, it will produce a page explaining what's wrong.
 ##
@@ -15,103 +15,109 @@
 ## uploaded file for grading.
 ##
 
+import cgi
 import re
-from tamarin import *
+import os.path
 
+import tamarin
+from tamarin import printHeader, printFooter, printError
+from tamarin import TamarinError
 
-def main():
-  """
-  Determine which mode to run in: are we displaying the upload page, or processing
-  a submission, or was there an error?
-  """
-  form = cgi.FieldStorage()
-  if not form:
-    displayUploadForm()
-  elif ('file' in form) and ('pass' in form):
-    validateUploadedFile(form)
-  else:
-    #XXX: You'll get this error if a binary file is uploaded and
-    #  Tamarin is running on Windows because, for some reason, the
-    #  pass field is then not submitted correctly.
-    printHeader('File Upload Error')
-    printError('BAD_SUBMITTED_FORM')
-    print form;
-    printFooter()
+def main(form=None):
+    """
+    Determine which mode to run in: are we displaying the upload page, 
+    or processing a submission, or was there an error?
+    """
+    if form is None:
+        form = cgi.FieldStorage()
+        
+    if not form:
+        displayUploadForm()
+    elif 'pass' in form and 'file' in form:
+        validateUploadedFile(form)
+    else:
+        #XXX: You'll get this error if a binary file is uploaded and
+        #  Tamarin is running on Windows because, for some reason, the
+        #  pass field is then not submitted correctly.
+        printHeader('File Upload Error')
+        printError('BAD_SUBMITTED_FORM')
+        #print(form);
+        printFooter()
 
 
 def displayUploadForm():
-  """
-  Displays the form to be used to upload a file.
-  """
-  printHeader('File Upload')
-  print """
+    """
+    Displays the form to be used to upload a file.
+    """
+    printHeader('File Upload')
+    print("""
 <h2>File Upload</h2>  
-<form class="html" action="/cgi-bin/upload.py" method="post" enctype="multipart/form-data">
+<form class="html" action="/cgi-bin/upload.py" method="post" 
+    enctype="multipart/form-data">
 <table>
-<tr><td>File (<code><i>Username</i>A##.<i>ext</i></code>):</td><td><input type="file" name="file"></td></tr>
-<tr><td>Your password:</td><td><input type="password" name="pass"></td></tr>
-<tr><td colspan="2" style="text-align: center;"><input type="submit" value="Upload this file for grading"></td></tr>
+<tr><td>File (<code><i>Username</i>A##.<i>ext</i></code>):</td>
+    <td><input type="file" name="file"></td></tr>
+<tr><td>Your password:</td>
+    <td><input type="password" name="pass"></td></tr>
+<tr><td colspan="2" style="text-align: center;">
+    <input type="submit" value="Upload this file for grading"></td></tr>
 </table>
 </form>
-  """
-  printFooter()
+    """)
+    printFooter()
 
 
 def validateUploadedFile(form):
-  """
-  Processes a file upload.  On an error, reports what went wrong to user.
-  Otherwise confirms that the user wants to grade the uploaded file.
-  """
-  printHeader("File Upload Results")
-  try: 
-    print '<h2>File Upload Results</h2>'
-    result = 'OK'
-    late = False
-    print '<p>'
-
-    if result == 'OK':
-      #get filename and check that file was properly uploaded
-      filename = form['file'].filename
-      if not filename:
-        result = 'NO_FILE_UPLOADED'
-      else:
-        print '<!--Original filename: ' + filename + '-->'
-        filename = stripFilename(filename)
-        print '<b>Filename:</b> ' + filename + '<br>'
-        filecontents = form.getfirst('file')
+    """
+    Processes a file upload.  
     
-    #validate filename
-    if result == 'OK':
-      result = checkFilename(filename)
+    Assumes the passed form is a valid query submission.  On an error, 
+    reports what went wrong to the user. Otherwise confirms that the 
+    user wants to submit the uploaded file for grading.
+    """
+    printHeader("File Upload Results")
+    try: 
+        print('<h2>File Upload Results</h2>')
+        late = False
+        print('<p>')
 
-    #authenticate user
-    if result == 'OK':
-      #assumes we ran checkFilename, so match will succeed
-      match = re.match(UPLOADED_RE, filename)
-      assert match
-      username = match.group(1)
-      username = username.lower()
-      assignmentName = match.group(2)
-      extension = match.group(3)
-      password = form.getfirst('pass')
-
-      print '<b>Username:</b> ' + username + '<br>'
-      print '<b>Password:</b>',
-      if password: 
-        print '*' * len(password) + '<br>'
-      else:
-        print '[missing]<br>'
-      
-      result = authenticate(username, password)
+        #get filename and check that file was properly uploaded
+        assert 'file' in form and 'pass' in form, "Invalid form submission"
+        filename = form['file'].filename
+        if not filename:
+            raise TamarinError('NO_FILE_UPLOADED')
+        else:
+            print('<!--Original filename: ' + filename + '-->')
+            filename = stripFilename(filename)  #defined below
+            print('<b>Filename:</b> ' + filename + '<br>')
+            filecontents = form.getfirst('file')
+            
+        #validate filename
+        checkFilename(filename)
+        
+        #authenticate user 
+        match = re.match(tamarin.UPLOADED_RE, filename)
+        assert match  #because filename is valid from above
+        username = match.group(1)
+        username = username.lower()  #for any initial uppercase letter
+        assignmentName = match.group(2)
+        extension = match.group(3)
+        password = form.getfirst('pass')
+        
+        print('<b>Username:</b> ' + username + '<br>')
+        print('<b>Password:</b>',)
+        if password: 
+            print('*' * len(password) + '<br>')
+        else:
+            print('[missing]<br>')      
+        
+        tamarin.authenticate(username, password)
     
-    #validate assignment
-    if result == 'OK':  
-      print '<b>Assignment:</b> ' + assignmentName
-      try:
-        assignment = Assignment(assignmentName)
-      except TamarinStatusError, tse:
-        result = tse.args[0]
+        #validate that assignment exists
+        print('<b>Assignment:</b> ' + assignmentName)
+        assignment = tamarin.Assignment(assignmentName) #may throw TamarinError
 
+        '''
     #confirm extension and initial cap    
     if result == 'OK':  
       #sanity/config check that we'll be able to handle this assignment's submissions
@@ -275,67 +281,66 @@ def validateUploadedFile(form):
       print '<input type="submit" value="Submit this file" class="centered">'
       print '</form>'  
     
-    if result != 'OK':
-      #Encountered an error along the way above, so report it now
-      printError(result)
-      print '<p>'
-      print 'Due to the above error, your uploaded file was not saved. ' \
-        'Please <a href="' + CGI_ROOT + '/upload.py">return to '\
-        'the upload page</a> and try again.'
-      print '</p>'   
-     
-  except:
-    printError('UNHANDLED_ERROR')
-  finally: 
-    printFooter()
+      '''
+    except TamarinError as err:
+        printError(err)
+        print('<p>')
+        print('Due to the above error, your uploaded file was not saved. ' 
+            'Please <a href="' + os.path.join(tamarin.CGI_ROOT, 'upload.py') + 
+            '">return to the upload page</a> and try again.')
+        print('</p>')   
+    except:
+        printError('UNHANDLED_ERROR')
+    finally: 
+        printFooter()
 
 
 def stripFilename(name):
-  """
-  A bit of a hack needed for IE7 and other browsers that provide the full path
-  rather than just the filename of an uploaded file.
-  
-  Returns the stripped filename.
-  """
-  match = re.search(r"([^\\/]+)$", name) #grab the stuff at the end after all slashes
-  return match.group(1)
+    """
+    A bit of a hack needed for IE7 and other browsers that provide the full path
+    rather than just the filename of an uploaded file.
+    
+    Returns the stripped filename.
+    """
+    match = re.search(r"([^\\/]+)$", name) #grab the stuff after all slashes
+    return match.group(1)
 
 
 def checkFilename(name):
-  """"
-  Determines whether name is syntactically correct (eg. UsernameA##.java)
-  
-  Returns 'OK' if so.  
-  Otherwise returns: 
-  'INVALID_CHARS', 'BAD_EXTENSION', 'BAD_ASSIGNMENT', 'NO_USER_NAME',
-  'USERNAME_NOT_LOWERCASE', or 'BAD_FILENAME'
-  
-  """
-  #Checks all these things one step at a time to give user the most feedback 
-  #about exactly what's wrong.
-  if (re.search(r"[^\w\.]", name)):
-    #contains something other than letter, digit, _, or .
-    return 'INVALID_CHARS'
-  elif (not re.match(r"\w*\.\w+$", name)):
-    #doesn't end in some sort of file extension
-    return 'BAD_EXTENSION'
-  elif (not re.match(r"\w*A\d\d[a-z]?\.\w+$", name)):
-    #filename doesn't end with A##a format
-    return 'BAD_ASSIGNMENT'
-  elif (not re.match(r"\w+A\d\d[a-z]?\.\w+$", name)):
-    #filename doesn't include a class or username before the assignment designator
-    return 'NO_USER_NAME'
-  elif (not re.match(r"\w[a-z0-9_]+A\d\d[a-z]?\.\w+$", name)):
-    #filename doesn't include any lowercase letters in username
-    return 'USERNAME_NOT_LOWERCASE'
-  elif (not re.match(UPLOADED_RE, name)):
-    #sanity check (almost certainly unnecessary at this point, but...)
-    return 'BAD_FILENAME'
-  else:
-    return 'OK'
+    """"
+    Determines whether name is syntactically correct (eg. UsernameA##.java)
     
-
+    Returns True if so. Otherwise raises a TamarinError with one of
+    the following keys: 'INVALID_CHARS', 'BAD_EXTENSION', 'BAD_ASSIGNMENT', 
+    'NO_USER_NAME', 'USERNAME_NOT_LOWERCASE', or 'BAD_FILENAME'.
+    
+    """
+    #Checks all these things one step at a time to give user the most feedback 
+    #about exactly what's wrong.
+    error = None
+    postfix = tamarin.ASSIGNMENT_RE + tamarin.EXTENSION_RE
+    if re.search(r"[^\w\.]", name):
+        #contains something other than letter, digit, _, or .
+        error = 'INVALID_CHARS'
+    elif not re.match(r"\w*" + tamarin.EXTENSION_RE, name):
+        #doesn't end in some sort of file extension
+        error = 'BAD_EXTENSION'
+    elif not re.match(r"\w*" + postfix, name):
+        #filename portion doesn't end with A##a format
+        error = 'BAD_ASSIGNMENT'
+    elif not re.match(r"\w+" + postfix, name):
+        #filename doesn't include a class or username before the assignment
+        error = 'NO_USER_NAME'
+    elif not re.match(r"\w?[a-z0-9_]+" + postfix, name):
+        #filename doesn't include any lowercase letters in username
+        error = 'USERNAME_NOT_LOWERCASE'
+    elif not re.match(tamarin.UPLOADED_RE, name):
+        #sanity check (almost certainly unnecessary at this point, but...)
+        error = 'BAD_FILENAME'
+    else:
+        return True  #'OK'
+    raise TamarinError(error)
 
 if __name__ == "__main__":
-  #running as a script (rather than as imported module)
-  main() #call main
+    #running as a script (rather than as imported module)
+    main() #call main

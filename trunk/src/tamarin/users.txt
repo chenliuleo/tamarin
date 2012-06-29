@@ -1,0 +1,13 @@
+#
+# A sample username file.  Each line must contain 5 fields:
+# 
+#   username|password|section ID|Last Name|First name
+# 
+# Usernames should be all lowercase (and will be treated as such if it is not)
+# and formed of only a-z, 0-9, and underscore (_) characters.
+# Blank lines and lines starting with a # are ignored.
+#
+johndoe|password|01|Doe|John
+jane_doe|password|01|Doe|Jane
+foobar|passwd|02|Bar|Foo
+ztomasze|example|TA|Tomaszewski|Zach
