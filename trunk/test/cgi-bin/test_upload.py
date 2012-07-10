@@ -1,20 +1,25 @@
 """
-Created on Jun 2, 2012
+Tests upload.py.
 
-@author: Zach Tomaszewski
+Author: Zach Tomaszewski
+Created: Jun 2, 2012
 """
 import unittest
+import os
+import os.path
 import sys
+
 import cgifactory
 import test
 
 sys.path.append(test.SRC_CGI)
+import tamarin
 import upload
 
 class UploadTest(test.TamarinTestCase):
     
     def setUp(self):
-        self.filenames = {'file': 'JohndoeA01.txt'}
+        self.filenames = {'file': 'JohndoeA01.java'}
         self.fields = {'pass': 'password', 'file': 'short file contents here'}
 
     def testDefault(self):
@@ -39,6 +44,14 @@ class UploadTest(test.TamarinTestCase):
         #print(response)      
         self.assertIn('NO_FILE_UPLOADED', response)
         
+    def testEmptyFile(self):
+        """ No file contents -> EMPTY_FILE. """
+        self.fields['file'] = ''
+        form = cgifactory.post(filenames=self.filenames, **self.fields)
+        response = self.query(upload.main, form)
+        #print(response)      
+        self.assertIn('EMPTY_FILE', response)
+        
     def testBadFilename(self):
         """ Filename is malformed -> appropriate error. """
         tests = {
@@ -49,7 +62,10 @@ class UploadTest(test.TamarinTestCase):
             'JohndoeA1.txt': 'BAD_ASSIGNMENT',
             'JohndoeA01bc.txt': 'BAD_ASSIGNMENT',
             'A01.txt': 'NO_USER_NAME', 
-            'JohnDoeA01.txt': 'USERNAME_NOT_LOWERCASE'
+            'JohnDoeA01.txt': 'USERNAME_NOT_LOWERCASE',
+        
+            'JohndoeA01.txt': 'WRONG_EXTENSION',
+            'johndoeA01.java': 'NO_INITIAL_CAP'
         }
         for name, error in tests.items():
             self.filenames['file'] = name
@@ -65,12 +81,48 @@ class UploadTest(test.TamarinTestCase):
         self.assertTrue(upload.checkFilename('JohndoeA01.tar.gz'), 
                         "Accepts long/multiple extensions.")
     
+    def testUndefinedType(self):
+        dir = 'A92-21121212-1212-quark'
+        try:
+            os.mkdir(os.path.join(tamarin.GRADED_ROOT, dir))
+            self.filenames['file'] = 'JohndoeA92.java'
+            form = cgifactory.post(filenames=self.filenames, **self.fields)
+            response = self.query(upload.main, form)
+            #print(response)      
+            self.assertIn('UNDEFINED_TYPE', response)            
+        finally:
+            os.rmdir(os.path.join(tamarin.GRADED_ROOT, dir))
+            
+    def testBinaryFile(self):
+        """ Binary data on a plain text assignment -> BINARY_FILE. """
+        self.fields['file'] = chr(0xB0)  #fine for UTF-8, but not ascii
+        tamarin.SUBMISSION_TYPES['java'].encoding = 'ascii'
+        try:
+            form = cgifactory.post(filenames=self.filenames, **self.fields)
+            response = self.query(upload.main, form)
+            #print(response)      
+            self.assertIn('BINARY_FILE', response)
+        finally:
+            tamarin.SUBMISSION_TYPES['java'].encoding = 'utf-8'
+    
     def testValidSubmission(self):
         """ A valid submission -> successfully processed. """
-        # FIXME: implement
-        pass
+        outputPath = os.path.join(tamarin.UPLOADED_ROOT, 
+                                  self.filenames['file'])
+        try:
+            form = cgifactory.post(filenames=self.filenames, **self.fields)
+            response = self.query(upload.main, form)
+            print(response)      
+            self.assertIn('<input type="submit"', response)
+            self.assertTrue(os.path.exists(outputPath), outputPath)
+        finally:
+            #clean up
+            if os.path.exists(outputPath):
+                os.remove(outputPath)      
     
-        
+    # To test manually:
+    # * Lateness
+    # * Uploading with already submitted, graded, and/or verified    
 
 if __name__ == "__main__":
     #import sys;sys.argv = ['', 'Test.testName']
