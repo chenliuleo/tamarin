@@ -51,19 +51,29 @@ sys.stderr = sys.stdout  #so that Python errors get printed to screen
 cgi.test()
 }}}
 
-Again, you may need to update the path to python and the file's permissions.  You should be able to run this file on the command line.  But, more importantly, you should also be able to direct your browser to your server's /cgi-bin/hellocgi.py and see the output in your browser.
+You should be able to run this file on the command line.  But, more importantly, you should also be able to direct your browser to your server's /cgi-bin/hellocgi.py and see the output in your browser.
 
-At this point, your web server is ready and capable of serving Python CGI scripts.  It should be downhill from here!
+Again, you may need to update the full path to python and the file's permissions.  You may need to do this to run the script through the web server even if it runs fine on the command line.  If you get a Internal Server Error, remember to check your server's error log for more specific error details.
 
-===5) Install Tamarin's .py scripts===
+By this point, your web server is ready and capable of serving Python CGI scripts.  It should be downhill from here!  (You can delete the two hello scripts now if you like.)
 
-copy
-path
-upload.py
+===5) Download Tamarin===
 
-===6) Install Tamarin's .html files===
+{Will eventually have a link here}.  The zip file should contain 3 directories: cgi-bin/, htdocs/, and tamarin/
 
-===7) Set up the tamarin/ directory===
+===6) Install Tamarin's .py scripts===
+
+Copy the .py files from the zip's cgi-bin/ into your cgi-bin/ directory (or wherever you're serving CGI scripts from).  
+
+Based on your experiences from above, you will likely need to adjust the file permissions and update the Python path at the head of the files.  (tamarin.py and any Tamarin file that starts with core_ is a module file and so it does not need an initial #! line.)
+
+To check that your edits worked, try opening cgi-bin/upload.py in your web browser.  (It might look a little clunky at this point, but you should at least see a couple form fields and not an error message.)
+
+===7) Install Tamarin's .html files===
+
+
+
+===8) Set up the tamarin/ directory===
 
 
 ==Configuration==
