@@ -15,10 +15,11 @@
  * Tamarin Components
 </wiki:comment>
   
- * Installation
-   * Security
-   * Multiple Tamarins
- * Configuration  <wiki:comment>(tamarin.py)</wiki:comment>
+ * [Installation]
+   * [Installation#Installation Installation]
+   * [Installation#Configuration Configuration]
+   * [Installation#Security Security]
+   * [Installation#Multiple_Tamarins Multiple Tamarins]
  * Common Tasks
 <wiki:comment>
    -defining assignments
