@@ -16,12 +16,15 @@
 ##
 
 import cgi
+import glob
+import html
 import re
 import os.path
 
 import tamarin
 from tamarin import printHeader, printFooter, printError
 from tamarin import TamarinError
+from core_type import Assignment, GradedFile
 
 def main(form=None):
     """
@@ -36,9 +39,9 @@ def main(form=None):
     elif 'pass' in form and 'file' in form:
         validateUploadedFile(form)
     else:
-        #XXX: You'll get this error if a binary file is uploaded and
-        #  Tamarin is running on Windows because, for some reason, the
-        #  pass field is then not submitted correctly.
+        # XXX: You'll get this error if a binary file is uploaded and
+        # Tamarin is running on Windows because, for some reason, the
+        # pass field is then not submitted correctly.
         printHeader('File Upload Error')
         printError('BAD_SUBMITTED_FORM')
         #print(form);
@@ -78,10 +81,9 @@ def validateUploadedFile(form):
     printHeader("File Upload Results")
     try: 
         print('<h2>File Upload Results</h2>')
-        late = False
         print('<p>')
 
-        #get filename and check that file was properly uploaded
+        # get filename and check that file was properly uploaded
         assert 'file' in form and 'pass' in form, "Invalid form submission"
         filename = form['file'].filename
         if not filename:
@@ -91,11 +93,13 @@ def validateUploadedFile(form):
             filename = stripFilename(filename)  #defined below
             print('<b>Filename:</b> ' + filename + '<br>')
             filecontents = form.getfirst('file')
+            if not filecontents:
+                raise TamarinError('EMPTY_FILE')
             
-        #validate filename
+        # validate filename
         checkFilename(filename)
         
-        #authenticate user 
+        # authenticate user 
         match = re.match(tamarin.UPLOADED_RE, filename)
         assert match  #because filename is valid from above
         username = match.group(1)
@@ -105,7 +109,7 @@ def validateUploadedFile(form):
         password = form.getfirst('pass')
         
         print('<b>Username:</b> ' + username + '<br>')
-        print('<b>Password:</b>',)
+        print('<b>Password:</b> ', end='')
         if password: 
             print('*' * len(password) + '<br>')
         else:
@@ -113,175 +117,150 @@ def validateUploadedFile(form):
         
         tamarin.authenticate(username, password)
     
-        #validate that assignment exists
-        print('<b>Assignment:</b> ' + assignmentName)
-        assignment = tamarin.Assignment(assignmentName) #may throw TamarinError
-
-        '''
-    #confirm extension and initial cap    
-    if result == 'OK':  
-      #sanity/config check that we'll be able to handle this assignment's submissions
-      if assignment.fileExt not in EXT_HANDLERS.keys():
-        result = 'UNHANDLED_FILE_EXTENSION'
-
-      #right extension?
-      if result == 'OK':
-        if extension != assignment.fileExt:
-          print '<br><b>Extension:</b> .' + str(extension) + \
-                ' (but expected .' + assignment.fileExt + ')'
-          result = 'WRONG_EXTENSION'
-      
-      #initial cap, if required?
-      if result == 'OK':
-        if EXT_HANDLERS[assignment.fileExt][REQ_INITIAL_CAP] and \
-           not re.match(r"^[A-Z]", filename):
-          result = 'NO_INITIAL_CAP'
-    
-    #see if already submitted or graded a submission for this assignment
-    # (info grabbed here since needed to determine what to accept late; 
-    #  but also used further below for warnings)
-    if result == 'OK':
-      #check submitted first, reusing filename (without extension) from above
-      wildFilename = filename.replace('.', '*.')
-      alreadySubmitted = glob.glob(os.path.join(SUBMITTED_ROOT, wildFilename))
-      #and now graded
-      alreadyGraded = glob.glob(os.path.join(assignment.path, wildFilename))
-      #but not all files in graded == a graded submission file if submitted
-      #ext is same as grader output file ext, so remove grader output files
-      for ag in alreadyGraded[:]: 
-        if re.match(GRADED_RE, os.path.basename(ag)):              
-          alreadyGraded.remove(ag)   
-    
-    #determine lateness
-    if result == 'OK':
-      result = assignment.isLate(comments=True) #add some timestamps in HTML
-
-      if result == 'SUBMISSION_LATE':
-        print ' (<i>late</i>)',
-        late = True
-        result = 'OK'
-      elif result == 'SUBMISSION_TOO_LATE':
-        print ' (' + VERY_LATE_LABEL + ')',
-        late = True
-        if SUBMIT_VERY_LATE and not alreadySubmitted and not alreadyGraded:
-          #can submit and haven't done so yet
-          result = 'OK'
-        elif RESUBMIT_VERY_LATE and (alreadySubmitted or alreadyGraded):
-          #can resubmit and have already submitted something
-          result = 'OK'     
-      print '<br>'
-      
-    #as a kind of lateness: has a human already verified a previous submission?
-    if result == 'OK':
-      if not RESUMBIT_AFTER_HUMAN and alreadyGraded:
-        #check if graded has also been verified
-        result = 'OK'
-        try:
-          for f in alreadyGraded: 
-            gradedF = GradedFile(os.path.basename(f))
-            if gradedF.humanVerified:
-              #oops for student: already verified
-              result = 'PREVIOUS_SUBMISSION_VERIFIED'
-              break
-        except TamarinStatusError, tse:
-          result = tse.args[0]
-
-    #grab file contents
-    if result == 'OK':
-      if not filecontents:
-        result = 'EMPTY_FILE'
+        # validate that assignment exists
+        print('<b>Assignment:</b> ' + assignmentName)  #... no <br> yet
+        assignment = Assignment(assignmentName) #may throw TamarinError
         
-    #check that file contents are plain text (if necessary)
-    if result == 'OK':
-      if assignment.fileExt and not EXT_HANDLERS[assignment.fileExt][IS_BINARY]:
-        try:
-          filecontents.decode()
-        except UnicodeError:
-          #sometimes it's not just a file format problem, but a copy-and-paste thing
-          # where a couple odd characters (like quotes and such) come from a word
-          # processor.  So this will help students track down where their bad chars are
-          # in this case.
-          lineCount = 1
-          charCount = 1
-          for char in filecontents: 
-            if ord(char) > 128:
-              print "<br><b>First non-ASCII character:</b>: ",
-              print "line " + str(lineCount) + ", char " + str(charCount) + "<br>"
-              break
-            elif char == '\n':  
-              #Note: line count only correct for Unix and Windows; not old Mac, etc
-              lineCount += 1
-              charCount = 1
-            else:
-              charCount += 1
-          result = 'BINARY_FILE'
+        # confirm any type-specific requirements...
+        # right extension?
+        if extension != assignment.type.fileExt:
+            raise TamarinError('WRONG_EXTENSION',
+                'Your file is .' + extension + 
+                ' but this assignment requires .' + assignment.type.fileExt)
+        
+        # initial cap?
+        if assignment.type.initialCap and not re.match(r"^[A-Z]", filename):
+            raise TamarinError('NO_INITIAL_CAP', filename)
 
-    print '</p>'
-    
-    #files often uploaded in binary form from various OSs, so adjust line-endings
-    if result == 'OK' and not EXT_HANDLERS[assignment.fileExt][IS_BINARY]:
-      filecontents = filecontents.replace('\r\n', '\r')
-      filecontents = filecontents.replace('\r', '\n')  #yet \n comes out as 0D0A on Windows
+        # check that file contents are plain text (if necessary)
+        if assignment.type.encoding:
+            try:
+                # convert bytes to str
+                filecontents = filecontents.decode(
+                                    encoding=assignment.type.encoding)
+                # files often uploaded in binary form from various OSs, 
+                # so adjust line-endings
+                # XXX: Still need this in Python3?
+                filecontents = filecontents.replace('\r\n', '\r')
+                # \n comes out properly as 0D0A on Windows
+                filecontents = filecontents.replace('\r', '\n')  
 
-    #display file
-    if result == 'OK' or result == 'BINARY_FILE':
-      print '<p><b>Uploaded Code:</b></p>'
-      print '<pre class="code">'
-      if EXT_HANDLERS[assignment.fileExt][IS_BINARY]:
-        print '[ <i>binary file format: cannot display contents here</i> ]'
-      else:
-        #need to prevent disappearing code due to tests looking like html tags
-        filedisplay = filecontents.replace('&', '&amp;');
-        filedisplay = filedisplay.replace('>', '&gt;');
-        filedisplay = filedisplay.replace('<', '&lt;');
-        print filedisplay
-      print '</pre>'    
+            except UnicodeError as err:
+                # this problem is often due to a copy-and-paste thing from a 
+                # different encoding where a couple odd characters (like quotes
+                # and such) come from a word processor.  So this will help 
+                # students track down where their bad chars are in this most
+                # common non-ASCII case
+                lineCount = 1
+                charCount = 1
+                for char in filecontents: 
+                    if char > 128:
+                        print("<p><b>First non-ASCII character:</b>: ")
+                        print("line " + str(lineCount) + ", char " + 
+                              str(charCount) + "<br>")
+                        break
+                    elif char == '\n':  
+                        # NOTE: line count only correct for Unix and Windows; 
+                        # not old Mac, etc
+                        lineCount += 1
+                        charCount = 1
+                    else:
+                        charCount += 1
+                raise TamarinError('BINARY_FILE', "This assignment requires "
+                    "plain text files using the " + assignment.type.encoding +
+                    " (or compatible) encoding, but: " + str(err))
+
+        # Ready to accept based on submission itself.
+
+        # Now see if late or already submitted (for warnings) or verified        
+        # Reuse filename (without extension) from above
+        wildFilename = filename.replace('.', '*.', 1)        
+        alreadySubmitted = glob.glob(os.path.join(tamarin.SUBMITTED_ROOT, 
+                                                  wildFilename))
+        alreadyGraded = glob.glob(os.path.join(assignment.path, wildFilename))
+        # but not all files in graded == a graded submission file if submitted
+        # ext is same as grader output file ext, so remove grader output files
+        for ag in alreadyGraded[:]: 
+            if re.match(tamarin.GRADED_RE, os.path.basename(ag)):              
+                alreadyGraded.remove(ag)   
+        
+        # determine lateness, so can print it here
+        if assignment.isLate():
+            print(' (<i>Late: </i>' + assignment.getLateOffset() + ')') 
+            if assignment.isTooLate():
+                raise TamarinError('SUBMISSION_TOO_LATE')
+            if not tamarin.MAY_RESUBMIT_LATE and \
+                    (alreadySubmitted or alreadyGraded):
+                raise 'RESUBMISSION_LATE'
       
-    #Done, so write file and give submit button
-    if result == 'OK':
-      #write file (could result in an error, handled as an UNHANDLED_ERROR below)
-      uploadedFilename = os.path.join(UPLOADED_ROOT, filename)
-      overwrite = glob.glob(uploadedFilename)  #see if file already exists
-      outfile = open(uploadedFilename, 'w')
-      outfile.write(filecontents)
-      outfile.close()
+        # has a human already verified a previous submission?
+        if not tamarin.MAY_RESUMBIT_AFTER_HUMAN and alreadyGraded:
+            # check if a graded file has also been verified
+            for f in alreadyGraded: 
+                gradedF = GradedFile(os.path.basename(f))
+                if gradedF.humanVerified:
+                    # oops for student: already verified
+                    raise TamarinError('PREVIOUS_SUBMISSION_VERIFIED')
+                
+        # display file contents (if appropriate)
+        print('<p><b>Uploaded Code:</b></p>')
+        print('<pre ' if assignment.type.preformatted else '<div ')
+        print('class="code">')
+        if not assignment.type.encoding:
+            print('[ <i>binary file format: '
+                  'cannot display contents here</i> ]')
+        else:
+            # prevent disappearing code due to code test looking like html tags
+            print(html.escape(filecontents))
+        print('</pre>' if assignment.type.preformatted else '</div>')
+      
+        # Done!
+        # write file (could result in an io error, handed as UNHANDLED below)
+        uploadedFilename = os.path.join(tamarin.UPLOADED_ROOT, filename)
+        overwrite = glob.glob(uploadedFilename)  #see if file already exists
+        outfile = open(uploadedFilename, 
+                       'w' if assignment.type.encoding else 'wb')
+        outfile.write(filecontents)
+        outfile.close()
 
-      #give success message
-      print '<p>'
-      print 'Your code (as shown above) has been uploaded to Tamarin. '
-      if overwrite: 
-        print '(Doing so overwrote a previously uploaded '\
-          'but unsubmitted file of the same name).  '
-      print '<i>It has not yet been submitted.</i> '
+        # give success message
+        print('<p>')
+        print('Your code (as shown above) has been uploaded to Tamarin. ')
+        if overwrite:
+            print('(Doing so overwrote a previously uploaded '
+                  'but unsubmitted file of the same name.) ')
+        print('<i>It has not yet been submitted.</i> ')
 
-    #warn if already submitted (and/or graded) this assignment
-    if result == 'OK':
-      if alreadySubmitted or alreadyGraded:
-        print '<p><b><i>Warning:</i></b> You already have '
-        if alreadySubmitted:
-          print str(len(alreadySubmitted)) + ' file(s) submitted '\
-            '(but not yet graded) '
-          if alreadyGraded:
-            print 'and '
-        if alreadyGraded:
-          print str(len(alreadyGraded)) + ' file(s) graded '
-        print 'for this ' + str(assignment) + ' assignment. '
-        submitCount = len(alreadySubmitted) + len(alreadyGraded)
-        print 'If you submit this uploaded file, it will be a (resubmission * ' + \
-              str(submitCount) + '), and so its final score will be reduced ' + \
-              'by -' + str(submitCount * RESUBMISSION_PENALTY) + '.</p>'                                      
-
-    #provide submit button
-    if result == 'OK':
-      print '<p>If you are ready to officially submit this uploaded file for '\
-        'grading, click the button below. </p>'
-      print ''
-      print '<form action="' + CGI_ROOT + '/submit.py" method="post" class="html">'
-      print '<input type="hidden" name="uploaded" value="' + filename + '">'
-      print '<input type="submit" value="Submit this file" class="centered">'
-      print '</form>'  
+        # warn if already submitted (and/or graded) this assignment
+        if alreadySubmitted or alreadyGraded:
+            print('<p><b><i>Warning:</i></b> You already have ')
+            if alreadySubmitted:
+                print(str(len(alreadySubmitted)) + ' file(s) submitted '
+                      '(but not yet graded) ')
+                if alreadyGraded:
+                    print('and ')
+            if alreadyGraded:
+                print(str(len(alreadyGraded)) + ' file(s) graded ')
+            print('for this ' + str(assignment) + ' assignment. ')
+            submitCount = len(alreadySubmitted) + len(alreadyGraded)
+            if tamarin.RESUBMISSION_PENALTY:
+                print('If you submit this uploaded file, it will be a ' +
+                      '(resubmission * ' + str(submitCount) + '), ')
+                print('and so its final score will be reduced by -' + 
+                      str(submitCount * tamarin.RESUBMISSION_PENALTY) + 
+                      '.</p>')
+                
+        # provide submit button
+        print("<p>If you are ready to officially submit this uploaded file "
+              "for grading, click the button below. </p>")
+        print()
+        print('<form action="' + tamarin.CGI_ROOT + '/submit.py" '
+              'method="post" class="html">')
+        print('<input type="hidden" name="uploaded" value="' + filename + '">')
+        print('<input type="submit" value="Submit this file" '
+              'class="centered">')
+        print('</form>')  
     
-      '''
     except TamarinError as err:
         printError(err)
         print('<p>')
@@ -297,8 +276,8 @@ def validateUploadedFile(form):
 
 def stripFilename(name):
     """
-    A bit of a hack needed for IE7 and other browsers that provide the full path
-    rather than just the filename of an uploaded file.
+    A bit of a hack needed for IE7 and other browsers that provide the full 
+    path rather than just the filename of an uploaded file.
     
     Returns the stripped filename.
     """
@@ -340,6 +319,7 @@ def checkFilename(name):
     else:
         return True  #'OK'
     raise TamarinError(error)
+
 
 if __name__ == "__main__":
     #running as a script (rather than as imported module)
