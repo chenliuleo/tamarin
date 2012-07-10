@@ -1,0 +1,76 @@
+#summary How to install and configure Tamarin on your web server.
+#labels AdminSupport
+
+=Installation=
+
+This page explains how to configure to your web server to serve Python 3 CGI scripts, install the necessary Tamarin files, and customize the details of your Tamarin instance.  It also discusses security issues you should be aware of and how to run multiple Tamarin instances on the same web server by using virtual hosts.
+
+These directions assume you have the required administration rights to configure your web server, and that you are comfortable using a command prompt, installing software, and editing configuration files.
+
+==Installation==
+
+===1) Python 3 is Installed ===
+
+Tamarin requires Python 3.0 or later release.  Check if Python 3 is installed by typing <code>python --version</code> at your command prompt.  If that doesn't return an appropriate version number, you might also check if <code>python3 --version</code> works.
+
+If Python 3+ is not installed, you'll need to install it.  See [http://python.org] for more.
+
+===2) Python Scripts are Executable ===
+
+Put the following code in a file named {{{hello.py}}}:
+{{{
+#!python3
+print("Hello! Python works.")
+}}}
+
+You may need to change {{{python3}}} in the she-bang (#!) line to the full appropriate path to your Python 3 executable.  If so, you'll also need this path info later.
+
+Also, if you're on a Linux/Unix machine, remember that you may need to use {{{chmod}}} to make your script file executable.
+
+Typing <code>hello.py</code> in the same directory as your file should run the script, producing the Hello message.  
+
+===3) Web Server Works===
+
+Now that Python works, you'll need a working web server.  You're on your own for this.  If you don't have a preference, I recommend [http://apache.org/httpd/ Apache 2].  Your web server installation guide should walk you through the necessary steps and checks.
+
+Double-check that your server is configured correctly be accessing one of its .html pages.  
+
+===4) Configure CGI===
+
+Now configure your web server to handle Python-based CGI scripts.  Normally, these scripts will be served from a special cgi-bin directory.  As an Apache example, see [http://httpd.apache.org/docs/2.4/howto/cgi.html].
+
+To test that this works, put the following in a file named {{{hellocgi.py}}} in your cgi-bin:
+
+{{{
+#!python3
+
+import sys
+import cgi
+
+sys.stderr = sys.stdout  #so that Python errors get printed to screen
+cgi.test()
+}}}
+
+Again, you may need to update the path to python and the file's permissions.  You should be able to run this file on the command line.  But, more importantly, you should also be able to direct your browser to your server's /cgi-bin/hellocgi.py and see the output in your browser.
+
+At this point, your web server is ready and capable of serving Python CGI scripts.  It should be downhill from here!
+
+===5) Install Tamarin's .py scripts===
+
+copy
+path
+upload.py
+
+===6) Install Tamarin's .html files===
+
+===7) Set up the tamarin/ directory===
+
+
+==Configuration==
+
+tamarin.py
+test
+
+==Security==
+
+==Multiple Tamarins==
