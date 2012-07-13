@@ -1,0 +1,227 @@
+/* General */
+BODY {
+  margin: 0;
+  font-family: sans-serif;
+}
+
+A {
+  text-decoration: none;
+}
+A:hover {
+  text-decoration: underline;
+}
+
+H1, H2 {
+  margin-top: 0;
+  padding-top: 0.5em;
+  text-align: center;
+}
+
+P, PRE, DIV.code {
+  margin-left: 5%;
+  margin-right: 5%;
+}
+
+TABLE.footer {
+  /* uncomment next line to hide footer */
+  /* display: none; */
+  margin-top: 2em;
+  clear: both;
+  border-top: 1px solid black;
+  font-size: 80%;
+}
+
+
+/* for upload.html and view.html's forms */
+FORM.html {
+  /* hack to center in IE */
+  text-align: center;
+}
+FORM.html TABLE {
+  margin: 1em auto 1em;
+}
+FORM.html TABLE TD {
+  padding-bottom: 1em;
+  padding-left: 1em;
+}
+INPUT.centered {
+  display: block;
+  margin: 0.5em auto;
+}
+
+/* for all generated pages */
+
+DIV.error {
+  border: thin solid #330066;
+  margin: 1em 5% 2em;  /* top left/right bottom */
+}
+DIV.error P { 
+  margin: 1em !important; /* so not overridden in views below */
+}
+
+PRE.code, DIV.code {  /* from validate.py; also used by submission view (below) */
+  padding: 2ex;
+  border: 1px dotted #666666;
+}
+
+SPAN.gradequeue {  /* from status.py */
+  padding-left: 3em;
+  font-family: monospace;
+  line-height: 1.5em;
+}
+
+
+/*
+ * For the various displays (from view.py, etc)
+ */
+ 
+/* submission view */
+DIV.submission { 
+  margin: 0.4em 5%;
+  padding-bottom: 0.3em;
+  border: 1px solid black;
+}
+DIV.submission P, DIV.submission PRE {  
+  /* undo standard margin's as set above */
+  margin: 0.4em 0;
+}
+
+DIV.submission H4 {
+  font-family: monospace;
+  margin: 0;
+  margin-bottom: 1em;
+  color: black;
+  background-color: #d5d5d5;
+  padding: 0.2em;
+  padding-left: 0.5em;
+  border-bottom: 1px solid black;
+}
+DIV.submission P B { 
+  font-size: smaller; 
+}
+
+DIV.submission PRE.code { 
+  margin-left: 2%;
+  margin-right: 2%;
+}
+DIV.grader {  /* section that includes: compiler, grader output, and grade */ 
+  padding: 0 2%;
+}
+DIV.grader SPAN.fail { /* compiler failure status */ 
+  font-size: smaller;
+  color: #660000;
+}
+DIV.grader SPAN.success { /* compiler passed status */ 
+  font-size: smaller;
+  color: #003300;
+}
+DIV.submission PRE.compiler { /* actual compiler output */ 
+  padding: 0 2em 1em;
+}
+DIV.submission PRE.grader { /* actual grader output */ 
+  padding: 0 2em 1em;
+  color: #333333;
+}
+DIV.submission PRE.grader .graderOutputLine {
+  color: #000000;
+}
+DIV.submission PRE.grader .graderPASS {
+  color: #006600;
+}
+DIV.submission PRE.grader .graderEXTRA {
+  color: #000033;
+}
+DIV.submission PRE.grader .graderPART {
+  color: #663300;
+}
+DIV.submission PRE.grader .graderFAIL {
+  color: #660000;
+}
+
+DIV.submission PRE.comment {  /* comments added later through admin interface */
+  padding: 0 2em 1em;
+}
+DIV.submission P.notgraded {
+  margin-left: 2%;
+  margin-right: 2%;
+  font-style: italic;
+}
+
+SPAN.unverified {
+  color: #505050;
+}
+
+/* masterview.py */
+DIV.masterview {
+  margin: 0 1% 0 5%;
+}
+DIV.masterview FORM {
+  margin: 1.5em 2em;
+}
+DIV.masterview H4 {
+  margin: 0.5em 0;
+}
+DIV.masterview P {
+  margin: 0.5em 1em;
+}
+
+
+/* appended form for modifySubmission view */
+FORM.modify {
+  margin-left: 5%;
+  margin-right: 5%;
+  padding-left: 1em;
+}
+FORM.modify P {
+  margin: 0.4em 0;
+  font-size: smaller;
+}
+
+
+/* A list of submissions for a single assignment.  May be brief or full. */
+DIV.submissionList { }
+DIV.submissionList DIV.assignment { /* includes summary grade table and all submissions */
+}
+DIV.submissionList TABLE.assignment { /* summary grade table */
+  margin: 0 5% 0.4em 4%;
+  width: 91%;
+  color: black;
+  background-color: #eeee99;
+  border: 1px solid #663300;
+}
+DIV.submissionList TABLE TD.assignment { 
+  width: 45%;
+}
+DIV.submissionList TABLE TD.grade { }
+DIV.submissionList TABLE TD.reason { 
+  text-align: right;
+}
+
+DIV.submissionList UL { /* brief view */
+  margin: 0em 5% 0.6em;
+  padding-left: 4%;
+  font-size: smaller;
+}
+DIV.submissionList UL INPUT { }
+
+/* The user's details, usually followed by/containing an submissionList */
+DIV.user { }
+DIV.user TABLE.user { 
+  margin: 0 5% 0.4em 3%;
+  width: 92%;
+  color: black;
+  background-color: #aaccee;
+  border: 1px solid #003366;
+}
+DIV.user TABLE TD.user { }
+DIV.user TABLE TD.section { 
+  text-align: right;
+}
+
+DIV.logout { /* The "close this window" message in a user's view.py of all their work */
+  margin: 0.2em auto 0.3em auto;
+  text-align: center;
+}
+
+/* from masterview.py */
+P.strip { /* strip and verify all tool output */ }

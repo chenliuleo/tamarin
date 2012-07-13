@@ -1,0 +1,86 @@
+BODY {
+  margin: 0;
+  font-family: sans-serif;
+}
+
+A {
+  text-decoration: none;
+}
+A:hover {
+  text-decoration: underline;
+}
+
+H1, H2 {
+  margin-top: 0;
+  padding-top: 0.5em;
+  text-align: center;
+}
+
+
+
+DIV.sidebar {
+  margin: 0;
+  background-color: #eff0a5;
+  width: 250px;
+  /*min-height: 22em;  -- not respected by IE, so using height instead*/
+  height: 22em;
+  border-right: 1px solid grey;
+  text-align: center;
+  float: left;
+}
+
+DIV.sidebar IMG {
+  padding: 12px 5px 5px 5px;
+}
+
+.imagetitle {
+  font-family: serif;
+  border-bottom: 1px dotted #333333;
+  line-height: 1.5em;
+}
+.attribution {
+  font-family: serif;
+  font-size: 60%;
+}
+
+DIV.page {
+  /*Empty hack needed to give IE an explicit containing block to 
+  absolutely position the DIV.main from */
+}
+
+DIV.main {
+  position: absolute;
+  left: 250px;  /* width of the sidebar */
+  width: 60%;
+}
+
+DIV.course {
+  margin: 1.5em 5%;
+  margin-top: 2em;
+  text-align: center;
+}
+.course H3 {
+  margin: 0;
+  padding-top: 0.2em;
+  border: thin solid navy;
+}
+.course UL {
+  margin: 0;
+  padding: 1em;
+  border: 1px dotted black;
+  border-top: none;
+}
+.course LI {
+  padding-bottom: 0.5em;
+  list-style: none;
+}
+
+
+
+TABLE.footer {
+  margin-top: 0;
+  clear: both;
+  border-top: 1px solid black;
+  font-size: 80%;
+}
+

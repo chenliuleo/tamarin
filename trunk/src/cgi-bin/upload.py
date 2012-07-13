@@ -1,19 +1,23 @@
 #!python3
 
-##
 ## upload.py 
-## Part of Tamarin, by Zach Tomaszewski.  Created 06 Jun 2008.
-##
-## If given no arguments, will display the upload form.
-##
-## Otherwise, validates an uploaded source code file, checking that it
-## has a valid file name, valid ASCII contents, isn't too large, etc.
-##
-## If anything is wrong, it will produce a page explaining what's wrong.
-##
-## If all is correct, it will confirm that the user wants to submit this 
-## uploaded file for grading.
-##
+
+"""
+Verifies that an uploaded file is valid and confirms the the user really
+wants to submit it for grading.
+
+If given no arguments, will display the upload form.
+
+Otherwise, validates an uploaded source code file, checking that it
+has a valid file name, valid contents, isn't too late, etc. 
+If anything is wrong, it will produce a page explaining what's wrong.
+If all is correct, copies the file to UPLOADED_ROOT and will confirm 
+that the user wants to submit this uploaded file for grading.
+
+Part of Tamarin, by Zach Tomaszewski.  
+Created" 06 Jun 2008.
+
+"""
 
 import cgi
 import glob
@@ -254,7 +258,7 @@ def validateUploadedFile(form):
         print("<p>If you are ready to officially submit this uploaded file "
               "for grading, click the button below. </p>")
         print()
-        print('<form action="' + tamarin.CGI_ROOT + '/submit.py" '
+        print('<form action="' + tamarin.CGI_URL + '/submit.py" '
               'method="post" class="html">')
         print('<input type="hidden" name="uploaded" value="' + filename + '">')
         print('<input type="submit" value="Submit this file" '
@@ -265,7 +269,7 @@ def validateUploadedFile(form):
         printError(err)
         print('<p>')
         print('Due to the above error, your uploaded file was not saved. ' 
-            'Please <a href="' + os.path.join(tamarin.CGI_ROOT, 'upload.py') + 
+            'Please <a href="' + tamarin.CGI_URL + '/upload.py' + 
             '">return to the upload page</a> and try again.')
         print('</p>')   
     except:

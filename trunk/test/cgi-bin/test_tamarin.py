@@ -59,13 +59,6 @@ class TamarinTest(test.TamarinTestCase):
         finally:
             shutil.move(bak, tamarin.USERS_FILE)        
         #[Contents processing and MALFORMED_USERS_FILE tested manually.]
-
-    def testAssignment(self):
-        """ Creating an Assignment instance -> works/fails appropriately. """
-        self.assertIsInstance(tamarin.Assignment('A01'), tamarin.Assignment)
-        self.assertRaisesRegex(TamarinError, 'NO_SUCH_ASSIGNMENT',
-                               tamarin.Assignment, 'A54')
-        #[FORMAT and DUPLICATE tested manually.]
         
 
 if __name__ == "__main__":
