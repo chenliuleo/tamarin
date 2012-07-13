@@ -117,6 +117,8 @@ class LatePolicy:
     manually uploads a submission timestamped after the final cutoff date, 
     the longest span late policy will still be applied to that submission.
     
+    LatePolicies have no effect on letter grades, such as ERR, OK, or X.
+    
     """
     def __init__(self, policy, deadline):
         """
@@ -135,7 +137,7 @@ class LatePolicy:
         hours, and minutes.  This span is relative to the assignment deadline,
         either earlier (if sign is -) or later (if sign is +).  A particular
         unit may be omitted if unused; it will be assumed to be 0.  If more 
-        than 23 hours or 59 minutes are specified, the correponding overflow 
+        than 23 hours or 59 minutes are specified, the corresponding overflow 
         into days and hours will be calculated.  At least one unit must be
         given though: d for day, h for hours, or m for minutes.  If more
         than one is used, they must be in that order.
@@ -165,7 +167,8 @@ class LatePolicy:
         either % or $.  Without a modifier, the value is treated as a raw 
         point modifier.  If appended with a %, this is a percentage of the 
         assignment's total possible score.  If appended with a $, 
-        it is a percentage of the submission's actual score.
+        it is a percentage of the submission's actual score.  (If the actual
+        score to be modified is not numeric, will default to % instead.)
         
         Optionally, the modifier may be followed by a / and relative span.
         At least one value--whether day, hour, or minutes--must be given
@@ -269,24 +272,29 @@ class LatePolicy:
                 raise TamarinError('INVALID_LATE_POLICY', 
                                    "Empty /modifier given: " + self.raw)
             
-    def getGradeAdjustment(self, score, total, timestamp, allowNeg=False):
+    def getGradeAdjustment(self, score, total, timestamp, allowNeg=True):
         """
         Given the submission's score, assignment total, and timestamp,
         returns the adjustment based on this policy. Respects 
         tamarin.GRADE_PRECISION.  
         
-        Normally, if adjustment is less than -score (which would result in a 
-        negative total score when applied), returns -score (which results in 
-        a total score of 0).  If allowNeg is True, the computed adjustment is 
-        not capped in this way.
+        Normally, returns the adjustment even if this is a penalty greater than
+        the score itself.  If allowNeg is False, any computed penalty is 
+        capped at -score.
+        
+        Remember, if passed a non-numeric score, any $ rules will convert to
+        % instead.  This way, a numeric value can always be returned.  
+                
         """
         import tamarin
         if self.span_sign == '+':
-            assert self.deadline < timestamp <= self.end
+            assert self.deadline < timestamp
+            timestamp = min(timestamp, self.end)
             timespan = (tamarin.convertTimestampToTime(timestamp) -
                         tamarin.convertTimestampToTime(self.deadline)) 
         else:
-            assert self.end <= timestamp <= self.deadline
+            assert timestamp <= self.deadline
+            timestamp = max(timestamp, self.end)
             timespan = (tamarin.convertTimestampToTime(self.deadline) -
                         tamarin.convertTimestampToTime(timestamp)) 
 
@@ -294,12 +302,13 @@ class LatePolicy:
             #no rule, which means do nothing to the grade
             return 0 
             
-        if self.rule_unit == '$':
+        if not self.rule_unit:
+            modifier = self.rule_value 
+        elif self.rule_unit == '$' and \
+                (isinstance(score, int) or isinstance(score, float)):
             modifier = (self.rule_value * score) / 100
-        elif self.rule_unit == '%':
+        else:   # self.rule_unit == '%', or '$' with non-numeric 
             modifier = (self.rule_value * total) / 100
-        else:
-            modifier = self.rule_value
                     
         if self.rule_sign == '-':
             modifier *= -1
@@ -321,6 +330,13 @@ class LatePolicy:
         if not allowNeg and score + gradeAdj < 0:
             gradeAdj = -score
         return gradeAdj
+    
+    def isEarlyPolicy(self):
+        """ 
+        An early policy is one that covers a span before the deadline.
+        Returns False if this policy covers a span after the deadline.
+        """
+        return self.end < self.deadline
 
     def __str__(self):
         """ Returns the original late policy format string. """
@@ -352,6 +368,7 @@ class Assignment:
         * due  -- when the assignment is due (in Tamarin timestamp format)
         * maxScore -- the max score or total value of this assignment
         * type -- the required SubmissionType for submissions
+        * policies -- a sorted list of LatePolicies 
 
         If the given assignment name is not of the correct format, throws an
         AssertionError.
@@ -446,11 +463,48 @@ class Assignment:
         minutes = (offset.seconds // 60) - (hours * 60)
         return '{0}{1}d {2}h {3:02}m'.format(sign, offset.days, hours, minutes)
 
+    def getPolicy(self, submittedTimestamp=None):
+        """
+        Returns the appropriate policy associated with this assignment based
+        on the given timestamp.  If no timestamp is given, uses the current
+        time.  May return None if this assignment has no late policies, or if
+        the given timestamp is before the deadline but there is no early 
+        submission policy.
+        """
+        import tamarin
+        if not submittedTimestamp:
+            # use current time
+            submittedTimestamp = tamarin.convertTimeToTimestamp()        
+        timestamp = submittedTimestamp 
+
+        if not self.policies:
+            return None
+        elif self.isLate(timestamp):
+            if self.policies[-1].isEarlyPolicy():
+                # only have early policies, though, so none apply
+                return None
+            else:
+                # find last late policy that applies (even if past last one)
+                for policy in self.policies:
+                    if not policy.isEarlyPolicy() and timestamp <= policy.end:
+                        break
+                return policy                
+        else:
+            if not self.policies[0].isEarlyPolicy():
+                # submission is early, but only have late policies
+                return None
+            else:
+                #find closest-to-deadline early policy that applies (or first)
+                for policy in reversed(self.policies):
+                    if policy.isEarlyPolicy() and timestamp >= policy.end:
+                        break
+                return policy
+
     def isLate(self, submittedTimestamp=None):
         """
-        Determines whether the submittedTimestamp (in 'YYYYMMDD-HHMM' foramt)
-        occurs after this assignment's deadline AND after all late policies.  
-        If submittedTimestamp is None, uses the current time.
+        Determines whether the submittedTimestamp (in 'YYYYMMDD-HHMM' format)
+        occurs before this assignment's deadline.  If submittedTimestamp is 
+        None, uses the current time.
         """
         import tamarin
         if not submittedTimestamp:
@@ -462,8 +516,8 @@ class Assignment:
     def isTooLate(self, submittedTimestamp=None):
         """
         Determines whether the submittedTimestamp (in 'YYYYMMDD-HHMM' format)
-        occurs before this assignment's deadline.  If submittedTimestamp is 
-        None, uses the current time.
+        occurs after this assignment's deadline AND after all late policies.  
+        If submittedTimestamp is None, uses the current time.
         """
         import tamarin
         if not submittedTimestamp:
@@ -533,6 +587,7 @@ class GradedFile(SubmittedFile):
     
     Details are the same as for a SubmittedFile, plus:
     
+    * assign - the Assignment object for the str in self.assignment
     * graderOutputPath - the full path to the grader output file
     * graderOutputFilename - just the base name of the grader output file
     * grade - the grade from the grader file (or ERR if it can't be found)
@@ -555,10 +610,10 @@ class GradedFile(SubmittedFile):
         """
         import tamarin
         #let superclass initialize everything
-        super().__init__(filename, True)
+        super().__init__(filename, virtualFile=True)
         #now reset path variable
-        assign = Assignment(self.assignment)
-        self.path = os.path.join(assign.path, filename)
+        self.assign = Assignment(self.assignment)
+        self.path = os.path.join(self.assign.path, filename)
         if not virtualFile: 
             if not os.path.exists(self.path):
                 raise TamarinError('NO_SUBMITTED_FILE', filename)
@@ -568,9 +623,9 @@ class GradedFile(SubmittedFile):
                                         "-*." + tamarin.GRADER_OUTPUT_FILE_EXT)
             gradedGlob = glob.glob(self.graderOutputPath)
             if not gradedGlob:
-                raise TamarinError('NO_GRADER_RESULTS')
+                raise TamarinError('NO_GRADER_RESULTS', filename)
             elif len(gradedGlob) > 1:
-                raise TamarinError('MULTIPLE_GRADER_RESULTS')
+                raise TamarinError('MULTIPLE_GRADER_RESULTS', filename)
             self.graderOutputPath = gradedGlob[0]
             self.graderOutputFilename = os.path.basename(self.graderOutputPath)
 
@@ -590,5 +645,85 @@ class GradedFile(SubmittedFile):
                 self.humanComment = 'C' in human
             else:
                 self.humanVerified = False
-                self.humanComment = False
+                self.humanComment = False                
+                
+    def getLateOffset(self):
+        """ As per Assignment.getLateOffset for this submission. """
+        self.assign.getLateOffset(self.timestamp)
+    
+    def getLateGradeAdjustment(self):
+        """
+        Returns the penalty or bonus due to the LatePolicy associated
+        with this assignment.  See LatePolicy.getGradeAdjustment.
+        Does not cap the late penalty (may be more than score itself).
+        Returns 0 if there is no late policy (as when isTooLate).
+        """
+        policy = Assignment(self.assignment).getPolicy(self.timestamp)
+        if not policy:
+            return 0
+        else:
+            return policy.getGradeAdjustment(self.grade, 
+                                             self.assignment.maxScore,
+                                             self.timestamp)
+    
+    def getResubmissionGradeAdjustment(self, submissionCount=None):
+        """
+        Returns the penalty due to additional submissions for this assignment.
+
+        Penalty can be more than can be covered by the grade itself. 
+        Returns the penalty even for non-numeric grades. Does not consider 
+        tamarin.MAX_RESUBMISSIONS, so extra manual uploads could lead to 
+        higher penalties than normally allowed. 
+        
+        The submissionCount is a performance boost.  If the number of 
+        submissions (including this one) is given here, will be used instead
+        of polling the file system to (re)collect the same data. 
+        
+        """
+        import tamarin
+        if not submissionCount:
+            # need to count the files here
+            files = tamarin.getSubmissions(user=self.username, 
+                                           assignment=self.assignment)
+            submissionCount = len(files)            
+
+        if submissionCount <= 1:
+            return 0
+        else:            
+            adj = (len(files) - 1) * tamarin.RESUBMISSION_PENALTY
+            return round(adj, tamarin.GRADE_PRECISION)
             
+    def getAdjustedGrade(self, submissionCount=None):
+        """ 
+        Returns this file's grade after adjustments for lateness or 
+        resubmissions.  See getLateGradedAjustment and 
+        getResubmissionGradeAdjustment.  Normalizes grade based on 
+        tamarin.GRADE_PRECISION.
+        
+        Non-numeric grades cannot be updated, and so these are returned
+        unchanged.  Also, does not allow for negative grades, so will 
+        return 0 instead if cumulative penalties are more than the grade.
+        
+        For the raw score returned by the grader, use self.grade directly.
+                
+        """
+        import tamarin
+        if isinstance(self.grade, str):
+            return self.grade
+        adjGrade = self.grade
+        adjGrade += self.getLateGradeAdjustment() 
+        adjGrade += self.getResubmissionGradeAdjustment(submissionCount)
+        adjGrade = round(adjGrade, tamarin.GRADE_PRECISION)
+        if adjGrade < 0:
+            adjGrade = 0
+        return adjGrade
+    
+    def isLate(self):
+        """ As per Assignment.isLate for this submission. """
+        self.assign.isLate(self.timestamp)
+
+    def isTooLate(self):
+        """ As per Assignment.isTooLate for this submission. """
+        self.assign.isTooLate(self.timestamp)
+    
+    

@@ -25,20 +25,23 @@ import traceback  # for crash/error reporting
 
 ## ---FOLDERS----
 ## Defines the locations and directory structure that Tamarin uses.
-## Do not include any path separators (such as /) in the folder names.
 ## 
 
 # Where the Tamarin .html and .css files are located.
-# This is specified relative to the web server's htdocs root.
-# Leave as '' (an empty string) to use the htdocs/ root.
+# This is a URL specified relative to the web server's htdocs root, so 
+# it should start with a '/'.  Just leave it as '/' to use the htdocs/ root.
 # 
-HTML_ROOT = 'tamarin'
+HTML_URL = '/'
 
-# Where the .py cgi scripts are located 
+# Where the .py cgi scripts are located.  Again, this is a relative
+# URL, so it should start with a / (but not end with one).
 # (If changed, also update any saved generated .html files, such as 
 #  upload.html)
 #  
-CGI_ROOT = 'cgi-bin'
+CGI_URL = '/cgi-bin'
+
+## It is recommended that you don't use any (non-normalized) literal 
+## path separators (such as /) in the remaining ROOT paths.
 
 # Where Tamarin stores its config files and (usually) the parent
 # directory of all the storage directories.
@@ -117,14 +120,14 @@ GRADEPIPE_IN = os.path.join(STATUS_ROOT, 'null.txt')
 GRADEPIPE_OUT = os.path.join(STATUS_ROOT, 'gradepipe.output')
 
 # The command needed to spawn the gradepipe (relative to CGI_ROOT) 
-# as a separate process.  Used in submit.py. 
+# as a separate process.  Used in submit.py.  Remember to use Python 3. 
 # 
 # On Unix: './gradepipe.py' (or the full path)
 # 
 # On Windows: "python gradepipe.py" or "pythonw gradepipe.py"
 #             (preferably, with full path to python)
 #             
-GRADEPIPE_CMD = 'pythonw ./gradepipe.py'
+GRADEPIPE_CMD = 'python3 ./gradepipe.py'
 
 # Location of a plain text file containing 
 # username, password, section, lastname, and firstname fields.
@@ -315,6 +318,10 @@ UNVERIFIED_GRADE_LABEL = " (tentative)"
 # 
 SHORT_UNVERIFIED_GRADE_LABEL = '<span class="unverified"><i>?</i></span>'
 
+# Added after a submission when listed.
+# 
+HUMAN_COMMENT_LABEL = " + comment"
+
 # Whether masterview.py links should open in a new window
 # 
 MASTER_LINKS_OPEN_NEW_WINDOW = True
@@ -387,11 +394,11 @@ TIMESTAMP_RE = r"(\d{8}-\d{4})"
 # 
 SUBMITTED_RE = r"^(\w+)" + ASSIGNMENT_RE + '-' + TIMESTAMP_RE + EXTENSION_RE
 
-# The regex for a grade, which is either C, NC, ERR, or an integer
+# The regex for a grade, which is either OK, X, ERR, or an integer
 # or decimal number.  Grading errors usually produce a file with 
 # only a - or -ERR.  * (0 or more) is used to match the - case.
 # 
-GRADE_RE = r"([NCER\d\.]*)"
+GRADE_RE = r"([\d\.]*|ERR|OK|X)"
 
 # The regex for an assignment after it has been graded:
 # basically, as SUBMITTED_RE, but with grading outcome added.
@@ -496,7 +503,7 @@ STATUS = {
         (432, "Your file is not plain text but instead contains "
         "non-standard characters."),
 
-    # Aubmission context problems
+    # Submission context problems
     'NO_UPLOADED_FILE': 
         (441, "There is no uploaded file that corresponds to the given "
         "username and assignment.  View your submissions it see if your "
@@ -533,8 +540,7 @@ STATUS = {
                     
     'BAD_ASSIGNMENT_DIR_FORMAT': 
         (505, "The name of the assignment directory on the Tamarin "
-        "server for this assignment does not contain the due date/time "
-        "in the correct format."),    
+        "server for this assignment does not match the required format."),    
     'DUPLICATED_ASSIGNMENTS': 
         (506, "There is more than one assignment directory defined on the "
         "Tamarin server for this assignment."),        
@@ -585,8 +591,9 @@ STATUS = {
 
     # 540s: view problems 
     # (though some actually come from GradedFile constructor)
-'COULD_NOT_READ': (541,
- "Could not read one of the files required to produce this view."),
+'COULD_NOT_READ': 
+        (541, "Could not read one of the files required to produce "
+         "this view."),
     'NO_GRADER_RESULTS': 
         (542, "Found no grader output file for this (supposedly) "
          "graded file."),
@@ -657,29 +664,25 @@ def authenticate(username, password):
     else:
         return True
 
-'''
 def getUserDetails(username):
-  #Future: Should probably make this a User class to be consistent
-  """
-  Returns the all the supplemental fields in the USER_FILE for the given user
-  (that is, everthing after the username and password fields)
-  or returns 'NO_USERS_FILE' or 'INVALID_USERNAME' instead.
-  """
-  users = loadUserFile()
-  username = username.lower()
-  if users == 'NO_USERS_FILE':
-    return users
-  elif username not in users:
-    return 'INVALID_USERNAME'
-  else:
-    return users[username][1:]  #skip password; no need to be passing those around
+    """
+    Returns all the supplemental fields in the USER_FILE for the given user.
+    That is, everthing after the username and password fields: a list of
+    [section, lastname, firstname].
+    
+    May throw 'NO_USERS_FILE' or 'INVALID_USERNAME' TamarinErrors.
+    """
+    users = loadUserFile()
+    username = username.lower()
+    return users[username.lower()][1:]
 
+'''
 def getUsers():
   """
   Returns a list of all usernames, or 'NO_USER_FILE' if there's an error.
-  Note that in other places (such as displaycore.py) Tamarin expects usernames to
-  be all lowercase.  (When they can occur as part of filenames, they can be lowercase
-  or titlecase.)
+  Note that in other places (such as displaycore.py) Tamarin expects 
+  usernames to be all lowercase.  (When they can occur as part of filenames, 
+  they can be lowercase or titlecase.)
   """
   users = loadUserFile()
   if users == 'NO_USERS_FILE':
@@ -707,7 +710,7 @@ def printHeader(title='Tamarin Results'):
 <meta http-equiv="Content-Type" content="text/html;charset=utf-8">
 <meta name="author" content="Generated by Tamarin (by Z. Tomaszewski)">
 <title>""" + title + """</title>
-<link rel="stylesheet" href=""" + '"' + HTML_ROOT + '/tamarin.css" ' + \
+<link rel="stylesheet" href=""" + '"' + HTML_URL + '/tamarin.css" ' + \
 """type="text/css">
 </head>
 
@@ -727,7 +730,7 @@ def printFooter():
 (&copy;2008 by Z. Tomaszewski)
 </td>
 <td align="center">
-""" + '<a href="' + HTML_ROOT + '/index.html">Home</a>' + """
+""" + '<a href="' + HTML_URL + '/index.html">Home</a>' + """
 </td>
 <td align="right" width="33%">
 Version: """ + TAMARIN_VERSION + """
@@ -848,7 +851,6 @@ def convertTimeToTimestamp(time=None):
     stamp += '-' + str(time.hour).zfill(2) + str(time.minute).zfill(2)
     return stamp  
 
-
 def convertTimestampToTime(timestamp=None):
     """
     Returns the given Tamarin timestamps converted to a datetime object.
@@ -864,8 +866,66 @@ def convertTimestampToTime(timestamp=None):
 
     #return new datetime object
     return datetime.datetime(year, month, day, hour, minute)
-    
 
+
+def getAssignments():
+    """
+    Returns a sorted list of assignment names, pulled from GRADED_ROOT.
+    """
+    assignments = glob.glob(os.path.join(GRADED_ROOT, '*'))
+    assignments = [re.match(ASSIGNMENT_RE, os.path.basename(a)).group(1) 
+                           for a in assignments]
+    assignments.sort()
+    return assignments        
+    
+def getSubmissions(user=None, assignment=None):
+    """
+    Returns a list of filename paths for the given combo of user and 
+    assignment, which should both be strings.  Either may be None.
+    For example, if user is not specified, returns all files for the given 
+    assignment.  If both are None, returns all submitted files for all 
+    assignments.  
+    
+    Returned filenames may point to files either in SUBMITTED_ROOT or in 
+    a GRADED_ROOT subdirectory.  Files are sorted by timestamp.
+    """
+    # Future: 
+    # graded=True, submitted=True, so can filter out what don't want?
+    # asObjects=False, which would encapsulate as SubmittedFile and GradedFile?
+    # if no user or assignment, sort into assignment-user-timestamp order?
+    #
+    from core_type import Assignment
+    if not assignment:
+        assignments = getAssignments()
+    else:
+        assignments = [assignment]
+
+    for a in assignments:
+        assignment = Assignment(a)
+        if user:
+            # support username having either upper or lowercase first letter
+            user = user.lower()
+            globFilename = '[' + user[0] + user[0].upper() + ']' + user[1:]            
+        else:
+            # grab all users
+            globFilename = '*'
+        globFilename += assignment.name + '-*.' + assignment.type.fileExt
+        
+        # get graded files 
+        files = glob.glob(os.path.join(assignment.path, globFilename))
+        if assignment.type.fileExt == GRADER_OUTPUT_FILE_EXT:
+            # need to drop grader output files from files list
+            files = [f for f in files 
+                        if re.match(SUBMITTED_RE, os.path.basename(f))]
+        
+        # add any ungraded submitted files
+        files.extend(glob.glob(os.path.join(SUBMITTED_ROOT, globFilename)))
+    
+    # sort using timestamp as the key  
+    files.sort(key=lambda x: 
+                re.match(SUBMITTED_RE, os.path.basename(x)).group(3))
+    return files
+                
 def getSubmittedFilenames(only=None):
     """
     Returns a list of those files in SUBMITTED, sorted by timestamp.
@@ -879,5 +939,3 @@ def getSubmittedFilenames(only=None):
     #sort using timestamp as the key
     submitted.sort(key=lambda x: re.search(r"\d{8}-\d{4}", x).group())
     return submitted
-
-# TODO: Shorten to 80 chars

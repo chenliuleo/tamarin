@@ -112,7 +112,7 @@ class UploadTest(test.TamarinTestCase):
         try:
             form = cgifactory.post(filenames=self.filenames, **self.fields)
             response = self.query(upload.main, form)
-            print(response)      
+            #print(response)      
             self.assertIn('<input type="submit"', response)
             self.assertTrue(os.path.exists(outputPath), outputPath)
         finally:
