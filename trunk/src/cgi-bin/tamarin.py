@@ -617,6 +617,7 @@ def loadUserFile():
     
     Returns a dictionary, keyed by username, where each value is a list of 
     all the other fields in the file: password, section, last, first.
+    Lowercases all usernames.
     
     Otherwise raises a TamarinError('NO_USERS_FILE') if the USERS file does
     not exist or cannot be opened or a TamarinError('MALFORMED_USER_FILE')
@@ -664,6 +665,12 @@ def authenticate(username, password):
     else:
         return True
 
+def getUsers():
+    """
+    Returns a list of all usernames from USERS_FILE or throws a TamarinError.  
+    """
+    return loadUserFile().keys()
+
 def getUserDetails(username):
     """
     Returns all the supplemental fields in the USER_FILE for the given user.
@@ -676,21 +683,6 @@ def getUserDetails(username):
     username = username.lower()
     return users[username.lower()][1:]
 
-'''
-def getUsers():
-  """
-  Returns a list of all usernames, or 'NO_USER_FILE' if there's an error.
-  Note that in other places (such as displaycore.py) Tamarin expects 
-  usernames to be all lowercase.  (When they can occur as part of filenames, 
-  they can be lowercase or titlecase.)
-  """
-  users = loadUserFile()
-  if users == 'NO_USERS_FILE':
-    return users
-  else:
-    return users.keys()
-
-'''  
 
 ## --Printing---
 
@@ -727,7 +719,7 @@ def printFooter():
 <tr>
 <td align="left" width="33%">
 <a href="http://code.google.com/p/tamarin/">Tamarin</a> 
-(&copy;2008 by Z. Tomaszewski)
+(&copy;2008-2012 by Z. Tomaszewski)
 </td>
 <td align="center">
 """ + '<a href="' + HTML_URL + '/index.html">Home</a>' + """
@@ -742,71 +734,57 @@ Version: """ + TAMARIN_VERSION + """
 </html>
     """)
 
-def printError(error, html=True):
+def printError(error):
     """
     Prints both Tamarin status code messages or other kinds of error mesgs.
     Error should be a TamarinError object or a string message.
     If you want a full traceback, send in 'UNHANDLED_ERRROR'.
-   
-    Can print in HTML with user-friendly messages, or not.
+
     """
     if not isinstance(error, TamarinError):
         if isinstance(error, str):
             error = TamarinError(error)
         else:
             error = TamarinError(type(error).__name__, str(error))
-    if html:
-        print('<div class="error">')
-        print('<p class="error">')
-        if error.key in STATUS:    
-            #use standard error message format
-            print('<b>Tamarin Error ' + str(STATUS[error.key][0]) + ':</b> ')
-            print(STATUS[error.key][1])
-            print('<small>(' + error.key, end='')
-            if error.details:
-                print(': ' + error.details, end='')
-            print(')</small></p>')
+    print('<div class="error">')
+    print('<p class="error">')
+    if error.key in STATUS:    
+        #use standard error message format
+        print('<b>Tamarin Error ' + str(STATUS[error.key][0]) + ':</b> ')
+        print(STATUS[error.key][1])
+        print('<small>(' + error.key, end='')
+        if error.details:
+            print(': ' + error.details, end='')
+        print(')</small></p>')
 
-            if STATUS[error.key][0] >= 500: 
-                #sys-config problems, so also let users know who to contacts
-                if error.key == 'UNHANDLED_ERROR':
-                    #add message and traceback
-                    print('<pre class="error">')
-                    traceback.print_exc(file=sys.stdout)
-                    print('</pre>')
+        if STATUS[error.key][0] >= 500: 
+            #sys-config problems, so also let users know who to contacts
+            if error.key == 'UNHANDLED_ERROR':
+                #add message and traceback
+                print('<pre class="error">')
+                traceback.print_exc(file=sys.stdout)
+                print('</pre>')
 
-                print('<p>There seems to be a problem with the Tamarin '
-                    'server or its configuration.  You may want to try what '
-                    'you were doing again. However, if this same problem '
-                    'perists, please copy and paste the complete error '
-                    'message above (including any Traceback information) '
-                    'and email it to ')
-                if ADMIN_EMAIL:
-                    print(ADMIN_EMAIL)
-                else: 
-                    print('your Tamarin administrator '
-                          '[<i>email address unknown</i>]')
-                print(' so that the problem can be fixed. ')
-                print('Thanks, and sorry for the inconvenience.</p>')
-
-        else:
-            #not in STATUS
-            print('<b>Nonstandard Tamarin Error:</b> ')
-            print(error.key, end='')
-            print((": " + error.details) if error.details else '')
-            print('</p>')
-        print('</div>')
-
+            print('<p>There seems to be a problem with the Tamarin '
+                'server or its configuration.  You may want to try what '
+                'you were doing again. However, if this same problem '
+                'perists, please copy and paste the complete error '
+                'message above (including any Traceback information) '
+                'and email it to ')
+            if ADMIN_EMAIL:
+                print(ADMIN_EMAIL)
+            else: 
+                print('your Tamarin administrator '
+                      '[<i>email address unknown</i>]')
+            print(' so that the problem can be fixed. ')
+            print('Thanks, and sorry for the inconvenience.</p>')
     else:
-        #non-html version    
-        print()
-        if error in STATUS:
-            print("ERROR " + str(STATUS[error.key][0]) +
-                  " (" + error.args + "): ")
-            print(STATUS[error.key][1])
-        else:
-            print("Nonstandard Error: ")
-            print(error.key)
+        #not in STATUS
+        print('<b>Nonstandard Tamarin Error:</b> ')
+        print(error.key, end='')
+        print((": " + error.details) if error.details else '')
+        print('</p>')
+    print('</div>')
 
 
 ## Other printing
