@@ -79,7 +79,7 @@ def displaySubmission(filename, master=False):
 
     if isinstance(submittedFile, GradedFile):
         #a graded file
-        with open(submittedFile.gradedOutputPath, 'r') as gradeFile:
+        with open(submittedFile.graderOutputPath, 'r') as gradeFile:
             for line in gradeFile:                
                 
                 #grab grade line and mark tentative and/or convert to link
@@ -114,7 +114,7 @@ def displaySubmission(filename, master=False):
                                             '[<span class="grader' + elem +
                                                '">' + elem + '</span>]')
         
-                        print(line, end='')
+                print(line, end='')
             #end for, then...
             gradeFile.close()
     else:
@@ -264,54 +264,35 @@ def displayUser(user, assignment=None, brief=True, master=False):
         displayAssignmentSubmissions(user, assign, brief, master)      
     print('</div>')
  
-    '''
-#add section filtering?
 def displayAssignment(assignment, brief=False, master=False):
-  """
-  Displays the assignment submissions list for every user
-  for the given assignment.  (This is basically the "grading" view.)
-  """
-  result = 'OK'
-  users = getUsers()
-  if users == 'NO_USER_FILE':
-    result = users
-  
-  if result == 'OK':
-    users.sort()
+    """
+    Displays the assignment submission lists for every user
+    for the given assignment.  (This is basically the "grading" view.)
+    """
+    # Future: add section filtering?
+    users = tamarin.getUsers().sort()
     for u in users:
-      result = displayUser(u, assignment, brief, master)
-  
-  return result
-
+        displayUser(u, assignment, brief, master)  
 
 def modifySubmission(filename):
-  """
-  As displaySubmission, this function then appends a form 
-  for the master to append a comment and/or change the grade.  
-  Sends these change to appendComment (in masterview.py), 
-  which deals with the actual hassle of storing the changes.
-  """
-  #doesn't need to be master, since don't need grade line
-  result = displaySubmission(filename)
-  
-  #need to get current grade, and then print comment form
-  if result == 'OK':
-    try:
-      submittedFile = GradedFile(filename) 
-      print '<form class="modify" action="masterview.py#bottom" method="post">'
-      print '<input type="hidden" name="submission" value="' + filename + '">'
-      print '<p id="append"><b>Comment to append:</b></p>'
-      print '<textarea name="comment" rows="4" cols="80"></textarea><br>'
-      print '<p><b>New grade:</b>'
-      print '<input type="text" name="grade" size="6"', 
-      print 'value="' + str(submittedFile.grade) + '">'
-      print '&nbsp; <b>Human verified:</b> '
-      print '<input type="checkbox" name="verify" checked> &nbsp;'
-      print '<input type="submit" name="modify" value="Modify">'
-      print '</p></form>'
-  
-    except TamarinStatusError:
-      #do nothing--just not graded yet, so can't edit grade
-      pass  
-  return result
-    '''
+    """
+    Extends displaySubmission to append a form for the master to append 
+    a comment and/or change the grade. Sends these change to appendComment 
+    (in masterview.py), which deals with the actual hassle of storing 
+    the changes.
+    """
+    #doesn't need to be master, since don't need grade link
+    displaySubmission(filename)
+    submittedFile = GradedFile(filename)
+    print('<form class="modify" action="masterview.py#bottom" method="post">')
+    print('<input type="hidden" name="submission" value="' + filename + '">')
+    print('<p id="append"><b>Comment to append:</b></p>')
+    print('<textarea name="comment" rows="4" cols="80"></textarea><br>')
+    print('<p><b>New grade:</b>')
+    print('<input type="text" name="grade" size="6"',) 
+    print('value="' + str(submittedFile.grade) + '">')
+    print('&nbsp; <b>Human verified:</b> ')
+    print('<input type="checkbox" name="verify" checked> &nbsp;')
+    print('<input type="submit" name="modify" value="Modify">')
+    print('</p></form>')
+
