@@ -237,7 +237,8 @@ MAY_RESUBMIT_LATE = True
 #
 MAY_RESUMBIT_AFTER_HUMAN = False
 
-from core_type import SubmissionType, Process
+from core_type import SubmissionType
+from core_grade import Process
 # The mapping of submission type names to SubmissionType objects.  The name
 # of each assignment directory may specify the submission type for that
 # assignment.  If it does not, the default ASSIGNMENT_TYPE is used.
@@ -290,17 +291,18 @@ EXT_HANDLERS = {
 
 # Occasionally a weird submission or poorly written grader will cause
 # problems that cause the grader to crash with an error message.
-# This message will get logged in the status/grader.output file, and 
-# more info will be in the particular grade results file, only in a 
-# -.txt file (that is, no grade as part of the name).  However, in the 
-# past, the actual submitted file would be just left in the SUBMITTED 
-# directory (since it was not successfully graded). While possibly handy 
-# for offline grading, this means Tamarin tries to grade the bad 
-# submission each time a new submission comes in.  Set this variable to
-# True if you want such a problem submission file to just be moved into 
-# the graded directory with an ERR grade.
+# This message will get logged in the status/grader output file, and 
+# more info may be in the particular grade results file with an ERR grade.
+# Normally, the problem file will then be moved into the graded directory too
+# so that it doesn't take up space (and get repeated graded) in the submit
+# queue. However, if you're debugging or offline-grading, it's often nice to 
+# have such problem files stay in the SUBMITTED folder instead so you don't 
+# have to keep moving them back while tweaking the grader.  (Default: False)
+#
+# There are a couple serious problems where files get left in SUBMITTED
+# even when this is True.
 # 
-MOVE_PROBLEM_FILES_INTO_GRADED_DIR = True
+LEAVE_PROBLEM_FILES_IN_SUBMITTED = True #False
 
 
 
@@ -559,27 +561,33 @@ STATUS = {
           
 
     # 510s: general file problems with things other than the grader files
-'GRADING_ERROR': (510,
-"Something unexpected happened while trying to grade. "\
-"Either files could not be copied or the grader could not be started "\
-"(probably due to permissions problems or failure to fork a process)."),
+    'GRADING_ERROR': 
+        (510, "Something unexpected happened while trying to grade."),
     'NO_SUBMITTED_FILE': 
         (511, "Filename submitted for grading could not be found."),
     'BAD_GRADE_FILENAME': 
         (512, "Filename given for grading does not match the required "
          "format."),
-'NO_RESULTS_FILE': (516,
-"Could not open the output grading results file (probably due to "\
-"a permissions problem or GRADED (sub)directory problems). "),
-'UNPREPABLE_GRADEZONE': (517,
-"Could not copy files into gradezone."),
-'COULD_NOT_STORE_RESULTS': (518,
-"Could not move either the submitted file or the text file of graded results "\
-"into the GRADED (sub)directory."),
+    'NO_RESULTS_FILE': 
+        (516, "Could not open the output grading results file (probably due "
+         "to a permissions problem or a GRADED (sub)directory problem)."),
+    'UNPREPABLE_GRADEZONE': 
+        (517, "Could either not clear or not copy files into gradezone."),
+        
 
-    #520s: problems with the grader
-'NO_GRADER_DIR': (524,
-"There is no grader directory established for this assignment."),
+    #520s: problems with a grader or process
+    'GRADER_CRASH':
+        (520, "A grading process just crashed unexpectedly. "
+         "See the Tamarin grading log for more information."),
+    'COULD_NOT_STORE_RESULTS': 
+        (521, "Could not write either the submitted file or the grader "
+         "results file into the GRADED (sub)directory."),
+    'INVALID_GRADE_FORMAT':
+        (522, "A grading process or verifying human has returned a grade that "
+         "does not match the allowed GRADE_RE format."),
+
+#'NO_GRADER_DIR': (524,
+#"There is no grader directory established for this assignment."),
 'NO_GRADER_FILES': (525,
 "There is a grader directory established for this assignment, "\
 "but it is empty."),
