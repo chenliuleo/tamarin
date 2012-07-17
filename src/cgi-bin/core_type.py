@@ -3,6 +3,7 @@
 
 """
 The definition of core classes used by Tamarin.
+Except for Process and subclasses, which are in core_grade.
 
 Part of Tamarin, by Zach Tomaszewski.  
 Created: 30 Jun 2012.
@@ -36,6 +37,10 @@ class TamarinError(Exception):
         Exception.__init__(self, key, details)
         self.key = key
         self.details = details
+
+    def __repr__(self):
+        return 'TamarinError(' + repr(self.key) + ', ' + \
+                repr(self.details) + ')'
 
 
 class SubmissionType:
@@ -77,10 +82,6 @@ class SubmissionType:
         self.preformatted = preformatted
         self.initialCap = initialCap        
         self.processes = processes
-
-        
-class Process:
-    pass        
 
 
 class LatePolicy:
