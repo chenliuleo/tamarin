@@ -16,10 +16,12 @@ Created: 14 Jul 2012.
 
 import datetime
 import glob
+import html
 import logging
 import re
 import os
 import shutil
+import subprocess
 
 # can't import tamarin here due to circular dependency; imported in methods
 #from core_type import TamarinErrror 
@@ -61,9 +63,7 @@ class Process:
         preparation for another process.) 
         
         self.output is any content that should be displayed to the student
-        in the generated grader output file.  It will be displayed in a 
-        preformatted format to preserve any formatting.  It is recommended
-        to keep lines to fewer than 80 chars long.
+        in the generated grader output file.  
         
         self.name is the most-specific class name of this Process.
         
@@ -279,24 +279,36 @@ class GradeFile(Process):
 
         The grader output file starts with <div class="grader">.
         
-        For each process, records any grade or output if either is not None.  
-        If recording, the process gets its own <div class="graderName">
-        section were name is the process's class name.  The grade will then
-        be recorded in a 
-        <p><span class="displayName">display name:</span> grade</p>.  
-        Any output will then follow in a <pre>output</pre>.  Finally, the 
-        process's div will be closed with a </div>. 
+        Then, for each process, records any grade or output if either is not 
+        None. If recording, the process gets its own <div class="graderName">
+        section were Name is the process's class name.  
         
-        Whether the process's run passes or fails does not affect output.
+        The grade will then be recorded as 
+        <p><span class="displayName">display name:</span> grade</p>.
+        If there is no grade, the rest of the line still gets printed
+        in order to identify the output. 
+        
+        Any output will then follow.  If the first character is a '<',
+        it is assumed that the output is appropriately HTML-formatted. 
+        If not, it will be HTML-escaped and displayed in a <pre> format.  
+        In this case, it is recommended to keep lines to fewer than 80 
+        chars long.  
+        
+        Finally, the current process's div will be closed with a </div>.  
+        
+        Whether a process's run passes or fails does not affect output.
         It simply determines whether or not the next process should be 
-        invoked.  So, if a Process is going to fail and want the student
+        invoked.  So, if a Process is going to fail and wants the student
         to know why, it should document it somehow in its self.output.
         
         After running all processes, the overall grade is stored in a 
-        <p><b>Grade:</b> grade</p> line.  The grade is the sum of all
-        grade values (if any was a number).  If none were a number, 
-        the grade is 'OK', unless this is replaced by one or more
-        processes producing either 'X' or 'ERR'.
+        <p><b>Grade:</b> grade</p> line.  If any grade is 'ERR', the final 
+        grade is 'ERR'.  Otherwise, if at least one grade was a number, 
+        the grade is the sum of all numerical grades.  If none were numbers, 
+        the grade is 'OK', unless there was at least one 'X'.  This means
+        the grade is 'OK' if there were no processes that returned a grade.
+        
+        Finally, the grader output file ends with another </div>. 
          
         """
         import tamarin
@@ -357,7 +369,7 @@ class GradeFile(Process):
                 self.logger.exception("Could not rm old or write new results.")
                 raise TamarinError('COULD_NOT_STORE_RESULTS', outName)
 
-            grade = 'OK'
+            grades = []
             passed = True
             try:              
                 # run all processes on the submission                
@@ -365,46 +377,77 @@ class GradeFile(Process):
                     success = p.run(args)                    
                     if p.grade or p.output:
                         print('<div class="' + p.name + '">', file=graderOut)
+                        print('<p><span class="displayName">' + p.displayName +
+                              ':</span>', end='', file=graderOut)
+                            
                         # save grade summary
                         if p.grade:
-                            if not re.match(tamarin.GRADE_RE, p.grade):
+                            if not re.match(tamarin.GRADE_RE + '$', 
+                                            str(p.grade)):
                                 raise TamarinError('INVALID_GRADE_FORMAT',
-                                                   p.name + ' => ' + p.grade)
-                            line = "".join('<p><span class="displayName">',
-                                           p.displayName, ':</span> ', p.grade,
-                                           '</p>')
-                            print(line, file=graderOut)
-                        
-                            # update grade
-                            if isinstance(grade, float):
-                                try:
-                                    grade += float(p.grade)
-                                except ValueError:
-                                    pass  # p.grade wasn't a number, so ignore
+                                                   p.name + ' => "' + 
+                                                   p.grade + '"')
+                            try:
+                                # convert p.grade to number it really is
+                                p.grade = round(float(p.grade), 
+                                                tamarin.GRADE_PRECISION)
+                            except ValueError:
+                                pass  # p.grade wasn't a number, so nevermind
+                            grades.append(p.grade)
+                            
+                            #print color-coded non-numeric grades
+                            if isinstance(p.grade, str):
+                                g = '<span class="'
+                                g += 'success' if p.grade == 'OK' else 'fail'
+                                g += '">' + p.grade + '</span>' 
                             else:
-                                if p.grade == 'X' or p.grade == 'ERR':
-                                    grade = p.grade
+                                g = str(p.grade)
+                            print(' ' + g, end='', file=graderOut)
+                        
+                        print('</p>', file=graderOut)    
                             
                         # save any output
                         if p.output:
-                            print('<pre>' + p.output + '</pre>',file=graderOut)
+                            if p.output[0] == '<':
+                                # already formatted
+                                print(p.output, file=graderOut)
+                            else:
+                                print('<pre>' + html.escape(p.output, 
+                                                            quote=False) + 
+                                      '</pre>', file=graderOut)
                         print('</div>', file=graderOut)
                         
                     if not success and p.required:
-                        self.logger.warn("%s required but failed, so aborting "
-                                         "grading run", p.name)
-                        grade = 'ERR'
+                        self.logger.warn("%s required but failed, so "
+                                          "aborting grading run", p.name)
                         passed = False
-                        break 
+                        break
                 
+                # process grades now that we have them all
+                if any(map(lambda x: x == 'ERR', grades)):
+                    grade = 'ERR' 
+                elif any(map(lambda x: isinstance(x, float), grades)):
+                    grade = 0
+                    for g in grades:
+                        if isinstance(g, float):
+                            grade += g
+                else:
+                    grade = 'X' if 'X' in grades else 'OK'
+                                
+            except TamarinError as err:
+                self.logger.error("%r", err)
+                grade = 'ERR'
+                passed = False
+                # Future: send this through printError on way to file?
+                print('<pre>' + repr(err) + '</pre>', file=graderOut)
             except:
                 self.logger.exception('A grading process just crashed!')
                 grade = 'ERR'
                 passed = False
-                # Future: send this through printError on way to file?
-                print('<pre>TamarinError: GRADING_CRASH.</pre>')
+                print('<pre>TamarinError: GRADING_CRASH.</pre>', 
+                      file=graderOut)
             finally:
-                print('<p><b>Grade:</b> ' + grade + '</p>', file=graderOut)
+                print('<p><b>Grade:</b> ' + str(grade) + '</p>',file=graderOut)
                 print('</div>', file=graderOut)
                 graderOut.close()
 
@@ -426,7 +469,7 @@ class GradeFile(Process):
 
             # SUCCESS!
             self.logger.info("%s -> %s", fInS, grade)
-            return True
+            return passed
 
         except TamarinError as err:
             self.logger.error("%r", err)
@@ -447,253 +490,221 @@ class GradeFile(Process):
                 os.remove(zf)
 
 
-'''
-##
-## gradecore.py 
-## Part of Tamarin, by Zach Tomaszewski.  Created 12 Aug 2008.
-##
-## Handles the actual details of grading submitted assignments.
-## Doesn't run as its own program, but is invoked through the grade 
-## function.
-##
-## Involves moving submitted files from SUBMITTED_ROOT into
-## the GRADEZONE, along with the needed grader and support files.
-## Then compiles the assignment, and runs the associated grader.
-## Note that it never compiles grader files; these must be pre-compiled.
-##
-## Always prints an output file (usually .txt) with the same name as the
-## submitted file.  (This file actually includes some HTML
-## markup, but is not a complete HTML document.)
-## Additionally, the gradecore can print this same information to 
-## the user.
-##
-
-
-
-def grade(filename, verbosity):
-  """
-  Grade the given filename (which should be found in SUBMITTED_ROOT), 
-  printing to the screen at either SILENT, CONSOLE, or HTML settings.
-  
-  The filename should be ONLY the base filename, with no path information.
-  
-  Returns status code: 'DONE' or an error messags such as 'GRADING_ERROR', etc.
-  """
-
-    #--COMPILING--
-    compiled = 0
-    if result == 'OK' and EXT_HANDLERS[submitted.fileExt][COMPILE_CMD]:
-      #copy grader files into gradezone (may need them for compiling)
-      if result == 'OK':
-        #prep will return a complaint if no assign dir found
-        result = prepGradeZone(submitted.assignment, verbosity)
-
-      #however, not really an error if not planning to grade (only compile)
-      if (result == 'NO_GRADER_DIR' or result =='NO_GRADER_FILES') and \
-          not EXT_HANDLERS[submitted.fileExt][GRADE_CMD]:
-        if verbosity == CONSOLE:
-          print "(No grader files found, but not needed to only compile)"
-        result = 'OK'
-
-      #compile assignment
-      if result == 'OK':
-        result = compile(submitted, outfile, verbosity)
-        #determine numerical compile status
-        if result == 'OK':
-          compiled = 1
-        result = 'OK'
-
-    #--GRADING--
-    if result == 'OK':
-      if EXT_HANDLERS[submitted.fileExt][GRADE_CMD]:
-        #copy grader files into gradezone again
-        #(Note: This needs to be done (again) after the assignment has been 
-        # compiled so that it cannot drop class files that overwrite the grader.)
-        if result == 'OK':
-          result = prepGradeZone(submitted.assignment, verbosity)
-
-        #run grader  
-        if result == 'OK':
-          #throws a TSE if not successful
-          grade = runGrader(submitted, compiled, outfile, verbosity)
-
-      else:
-        #didn't grade, so compile result is the final result
-        grade = 'C' if (compiled == 1) else 'NC'
-
-  except TamarinStatusError, tse:
-    result = tse.args[0]
-  except:
-    traceback.print_exc(None, sys.stdout)
-    result = 'GRADING_ERROR'
-  
-  
-  
-
-def prepGradeZone(assignment, verbosity):
-  """
-  Preps the GRADEZONE to grade that assignment by copying the needed 
-  base files from GRADERS and the specific grader files from GRADERS/A##.
-  
-  Because they are copied second, assignment grader directories 
-  can contain files that will overwrite ("override") files of the same
-  name in the default GRADERS files.
-  
-  Returns 'OK', 'NO_GRADER_DIR', or 'NO_GRADER_FILES'. 
-  """
-  result = 'OK'
-
-  if verbosity == CONSOLE:
-    print "Copying " + assignment + " grader files into gradezone..."
-
-  #copy all the files from GRADERS_ROOT, which should be present
-  #for every grading run    
-  if result == 'OK':
-    graderFiles = glob.glob(os.path.join(GRADERS_ROOT, '*'))
-    for gf in graderFiles:
-      #copy files only
-      if os.path.isfile(gf):
-        shutil.copy(gf, GRADEZONE_ROOT)
-
-  #see if we have a grader dir ready...
-  if not os.path.exists(os.path.join(GRADERS_ROOT, assignment)):
-    result = 'NO_GRADER_DIR'
-
-  #...complete with files in it
-  if result == 'OK':  
-    graderFiles = glob.glob(os.path.join(GRADERS_ROOT, assignment, '*'))
-    for gf in graderFiles:
-      #do a recursive copy of any directories
-      if os.path.isdir(gf):
-        #remove anything already there so copy will succeed; ignore errors if not there
-        shutil.rmtree(os.path.join(GRADEZONE_ROOT, os.path.basename(gf)), True)
-        shutil.copytree(gf, os.path.join(GRADEZONE_ROOT, os.path.basename(gf)), True)
-      else:
-        shutil.copy(gf, GRADEZONE_ROOT)
-    if not graderFiles:
-      result = 'NO_GRADER_FILES'
-          
-  return result
-
-
-
-def compile(file, outfile, verbosity):
-  """
-  Compiles the given SubmittedFile (after convertinb back to its original name) 
-  in the GRADEZONE.  Writes output of results to outfile.
-  
-  Returns 'OK' if everything compiles, otherwise 'ASSIGNMENT_COMPILE_FAILED'.
-  """
-  result = 'OK'
-
-  #document to screen/file what we're about to do to
-  if verbosity == CONSOLE:
-    print "Compiling " + file.originalFilename + "...",
-  #print to file (and to screen if in HTML mode)
-  tprint(outfile, '<p><b>Compiling:</b> ', verbosity == HTML)
-
-  #run compiler
-  cmd = EXT_HANDLERS[file.fileExt][COMPILE_CMD]
-  #replace wildcards
-  cmd = cmd.replace("$F", file.originalFilename)
-  cmd = cmd.replace("$A", file.assignment)
-  
-  compile = subprocess.Popen(cmd.split(),  #needs to be a sequence on unix if shell=False
-                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                             cwd=GRADEZONE_ROOT)
-  output = compile.communicate()[0]  #only need stdout of (stdout, stderr)
-
-  #determine result
-  if EXT_HANDLERS[file.fileExt][COMPILED_EXT] != None:
-    #Have an output ext, so check if such a file was produced
-    compiledFilename = file.originalFilename.replace(file.fileExt, 
-                         EXT_HANDLERS[file.fileExt][COMPILED_EXT])
-    if os.path.exists(os.path.join(GRADEZONE_ROOT, compiledFilename)):
-      result = 'OK'
-    else:
-      result = 'ASSIGNMENT_COMPILE_FAILED'
-  
-  else:
-    #no defined output file, so assume that compiler output means failure
-    result = ('ASSIGNMENT_COMPILE_FAILED' if output else 'OK')
-
-  #print results to file
-  if result == 'OK':
-    tprint(outfile, '<span class="success">OK</span></p>', verbosity == HTML)  
-  else:
-    tprint(outfile, '<span class="fail">FAILED</span></p>', verbosity == HTML)
-  if output:
-    tprint(outfile, '<pre class="compiler">', verbosity == HTML)
-    tprint(outfile, output + '</pre>', verbosity == HTML)
-
-  #finish single console line with result if in that mode
-  if verbosity == CONSOLE: 
-    print result
+class CopyGrader(Process):
+    """ 
+    Copies the grader files for this assignment into the GRADEZONE. 
     
-  return result
-  
-  
-def runGrader(file, compiled, outfile, verbosity):
-  """
-  Runs the grader for the given file.  The compiled status is required
-  so that the grader can determine the grade, even if the assignment did
-  not compile.  Writes results (both stdout and stderr) to outfile 
-  (and maybe to screen, based on verbosity level).
-  
-  All files should already be compiled and ready to go in GRADEZONE.
-  
-  Returns the grade if the grader returns a valide float on stderr; 
-  otherwise throws a TamarinStatusError('GRADING_ERROR').
-  (May also throw other exceptions if there's a problem with the files.)
-  """
-  result = 'OK'
-  
-  #document to screen/file what we're about to do to
-  if verbosity == CONSOLE:
-    print "Grading " + file.originalFilename + "...",
-  #print to file (and to screen if in HTML mode)
-  tprint(outfile, '<p><b>Grading Output:</b></p><pre class="grader">', verbosity == HTML)
-  
-  #run grader
-  cmd = EXT_HANDLERS[file.fileExt][GRADE_CMD]
-  #replace wildcards
-  cmd = cmd.replace("$F", file.originalFilename)
-  cmd = cmd.replace("$A", file.assignment)
-  cmd = cmd.replace("$C", str(compiled))
-  grader = subprocess.Popen(cmd.split(), 
-                            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                            cwd=GRADEZONE_ROOT)
-  (stdout, stderr) = grader.communicate()
+    It is recommended that grader files be pre-compiled and copied after
+    compiling the submission.  This way, the submission cannot overwrite
+    the grader files.  If the submission needs some of the grader files
+    in order to compile, then copy the graders, compile the submission,
+    and copy the graders again (to be sure you still have the original
+    versions).
+    """
+    
+    def __init__(self, required=True, 
+                 displayName="Copying grader files into gradezone",
+                 rootGrader=True, assignmentGrader=True):
+        """
+        If rootGrader is True, will copy any files found in GRADERS_ROOT
+        into the gradezone.  If there aren't any files there, the run will 
+        fail. Copies files only, not directories.
+        
+        If assignmentGrader=True, will copy any files found in GRADERS_ROOT/X,
+        where X is the assignment name.  If the folder is not there or is
+        empty, the run will fail.  Will copy whole directories trees if 
+        present.  Since any assignment copying always happens seconds, it is
+        possible to overwrite any default rootGrader files with 
+        assignment-specific versions.
+        
+        It is an error to set both rootGrader and assignmentGrader to False,
+        since then there's nothing to copy.  This will result in an exception
+        when running.
+        """
+        super().__init__(required=required, displayName=displayName)
+        self.rootGrader = rootGrader
+        self.assignmentGrader = assignmentGrader
+        
+    def run(self, args):
+        """
+        If rootGrader, copies that first.  If assignmentGrader, requires 
+        args['GradeFile.assignment'] for the assignment name.  Will copy
+        those graders too.
+        
+        See __init__ for more docs.
+        """
+        import tamarin
+        from core_type import TamarinError
+            
+        if not self.rootGrader and not self.assignmentGrader:
+            self.logger.error("Both rootGrader and assignmentGrader are "
+                              "False.")
+            raise TamarinError('INVALID_PROCESS_CONFIGURATION', self.name)
+        
+        if self.rootGrader:
+            try:
+                graderFiles = glob.glob(os.path.join(tamarin.GRADERS_ROOT,'*'))
+                # files only; no dirs
+                graderFiles = [gf for gf in graderFiles if os.path.isfile(gf)]
+                if not graderFiles:
+                    self.logger.error("No rootGrader files to copy.")
+                    raise TamarinError('GRADER_ERROR', self.name)
+                for gf in graderFiles:
+                        shutil.copy(gf, tamarin.GRADEZONE_ROOT)
+                self.logger.debug("Copied %d root grader file(s) "
+                                  "into gradezone.", len(graderFiles))
+            except TamarinError:
+                raise
+            except:
+                self.logger.exception('Could not copy rootGrader files')
+                raise TamarinError('GRADER_CRASH', self.name)
 
-  #record output (if any)
-  stdout = stdout.replace('<', '&lt;')
-  stdout = stdout.replace('>', '&gt;')
-  tprint(outfile, stdout + '</pre>', verbosity == HTML)
-  
-  #make sure grader returned something
-  if not stderr:
-    raise TamarinStatusError('NO_GRADER_OUTPUT')
-  
-  #record grader feedback
-  if result == 'OK':
-    try:
-      grade = float(stderr)
-      #format here is important!  See displaycore.displaySubmission in master mode.
-      tprint(outfile, '<p><b>Grade:</b> ' + str(grade) + '</p>', verbosity == HTML)
-    except ValueError:
-      result = 'GRADER_FAILED'
-      tprint(outfile, '<p><i>Grader failed to complete!</i>', verbosity == HTML)
-      tprint(outfile, 'Its dying words were: </p><pre>', verbosity == HTML)
-      tprint(outfile, stderr + '</pre>', verbosity == HTML)
-  
-  if result == 'OK':
-    #finish console line
-    if verbosity == CONSOLE: 
-      print grade
-    return grade
-  else:
-    #error
-    raise TamarinStatusError(result)
+        if self.assignmentGrader:
+            try:
+                assignLoc = os.path.join(tamarin.GRADERS_ROOT, 
+                                         args['GradeFile.assignment'])
+                if not os.path.exists(assignLoc):
+                    self.logger.error('No GRADERS/%s location to copy from.', 
+                                      args['GradeFile.assignment'])
+                    raise TamarinError('GRADER_ERROR', self.name)
+                
+                graderFiles = glob.glob(os.path.join(assignLoc,'*'))
+                if not graderFiles:
+                    self.logger.error("No assignmentGrader files to copy.")
+                    raise TamarinError('GRADER_ERROR', self.name)
+                for gf in graderFiles:
+                    #do a recursive copy of any directories
+                    if os.path.isdir(gf):
+                        # remove anything already there so copy will succeed; 
+                        # ignore errors if not there
+                        shutil.rmtree(os.path.join(tamarin.GRADEZONE_ROOT, 
+                                                   os.path.basename(gf)), True)
+                        shutil.copytree(gf,os.path.join(tamarin.GRADEZONE_ROOT,
+                                                   os.path.basename(gf)), True)
+                    else:
+                        shutil.copy(gf, tamarin.GRADEZONE_ROOT)
+                self.logger.debug("Copied %d assignment grader file(s) "
+                                  "into gradezone.", len(graderFiles))
+            except TamarinError:
+                raise
+            except:
+                self.logger.exception('Could not copy assignmentGrader files')
+                raise TamarinError('GRADER_CRASH', self.name)
+        
+        return True
 
 
-'''
+class JavaCompiler(Process):
+    """ 
+    Compiles the submitted file using javac. 
+    """
+    
+    def __init__(self, javacPath, required=True, displayName="Compiled",
+                 grade='OK'):
+        """
+        Requires the path to the javac compiler.
+        """
+        super().__init__(required, displayName)
+        self.javac = javacPath
+        self.grade = grade
+    
+    def run(self, args):
+        """
+        Compiles the file named in args['GradeFile.file'].  It is assumed
+        that this will be a .java file.
+        
+        Returns True and leaves self.grade as set in the constructor 
+        if the file compiled.  Otherwise, sets self.grade to 0 if it was a 
+        number or to 'X' if it wasn't and returns False.
+        
+        Also sets 'JavaCompiler.compiled' to True or False.
+        """
+        # Future: Allow a compile *.java somehow?  
+        # And maybe support packages someday?
+        import tamarin
+        from core_type import TamarinError
+        cmd = (self.javac, args['GradeFile.filename'])
+        try:
+            compiler = subprocess.Popen(cmd,
+                                        stdout=subprocess.PIPE, 
+                                        stderr=subprocess.STDOUT,
+                                        cwd=tamarin.GRADEZONE_ROOT,
+                                        universal_newlines=True)
+            #only need stdout of (stdout, stderr)
+            self.output = compiler.communicate()[0]  # may just be warnings
+        except:
+            self.logger.exception("Couldn't spawn javac process")
+            raise TamarinError('GRADER_ERROR', self.name)
+
+        compiled = args['GradeFile.filename'].replace('.java', '.class')
+        if os.path.exists(os.path.join(tamarin.GRADEZONE_ROOT, compiled)):
+            self.logger.debug("Compiled %s", args['GradeFile.filename'])
+            args['JavaCompiler.compiled'] = True
+            return True
+        else:
+            self.grade = 'X' if isinstance(self.grade, str) else 0 
+            self.logger.debug("%s did not compile", args['GradeFile.filename'])
+            args['JavaCompiler.compiled'] = False
+        return args['JavaCompiler.compiled']
+
+
+class JavaGrader(Process):
+    """ 
+    Invokes the assignment-specific TamaringGrader.java-based grader.
+    Assumes the grader is already compiled and named XXGrader.class,
+    where XX is the assignment name.  The grader will also need the
+    .class files generated by TamarinGrader.java. (These can often
+    be stored in the GRADERS_ROOT directory.)
+    """
+    
+    def __init__(self, javaPath, required=True, displayName="Tamarin grader"):
+        """
+        Requires the path to the java executable.
+        """
+        super().__init__(required, displayName)
+        self.java = javaPath
+        
+    def run(self, args):
+        """
+        Requires args['GradeFile.filename'], args['GradeFile.assignment'],
+        and args['JavaCompiler.compiled'].  
+        """
+        import tamarin
+        from core_type import TamarinError
+        
+        self.logger.debug("Grading %s with %sGrader", 
+                          args['GradeFile.filename'], 
+                          args['GradeFile.assignment'])
+        graderName = args['GradeFile.assignment'] + 'Grader'
+        if not os.path.exists(os.path.join(tamarin.GRADEZONE_ROOT, 
+                                           graderName + '.class')):
+            raise TamarinError('GRADER_ERROR', 
+                               graderName + ".class is not in the gradezone.")        
+        try:            
+            compiled = 1 if args['JavaCompiler.compiled'] else 0
+            cmd = (self.java, graderName, str(compiled))
+            grader = subprocess.Popen(cmd, 
+                                      stdout=subprocess.PIPE, 
+                                      stderr=subprocess.PIPE,
+                                      cwd=tamarin.GRADEZONE_ROOT,
+                                      universal_newlines=True)
+            (self.output, stderr) = grader.communicate()
+        except:
+            self.logger.exception("Couldn't spawn Java grader process")
+            raise TamarinError('GRADER_ERROR', self.name)
+          
+        #make sure grader returned something
+        try:
+            self.grade = float(stderr)
+            return True
+        except ValueError:
+            if self.output:
+                self.output += '\n\n'
+            else:
+                self.output = ''
+            self.output += 'GRADER_ERROR: The Tamarin grader did not '
+            self.output += 'return a valid grade on stderr.\n'
+            self.output += 'Instead, its dying words were: \n'
+            self.output += str(self.grade) + '\n'
+            self.grade = 'ERR'
+            return False
