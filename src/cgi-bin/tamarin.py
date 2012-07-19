@@ -238,55 +238,22 @@ MAY_RESUBMIT_LATE = True
 MAY_RESUMBIT_AFTER_HUMAN = False
 
 from core_type import SubmissionType
-from core_grade import Process
+from core_grade import CopyGrader
+from core_grade import JavaCompiler, JavaGrader
 # The mapping of submission type names to SubmissionType objects.  The name
 # of each assignment directory may specify the submission type for that
 # assignment.  If it does not, the default ASSIGNMENT_TYPE is used.
 # 
 SUBMISSION_TYPES = {
-    'java': SubmissionType('java',
-                           initialCap=True,
-                           processes=[
-                           ])
-}
-
-
-# How to handle submissions/assignments with different file extensions.
-# That is, how should each extension be processed.
-# For each extension, specify:
-# [compile command,
-#  compile output file ext (replaces the original extension),
-#  grade command, 
-#  binary file type?, 
-#  require init capital in filename?
-#  display as code (using PRE without word wrap)?]
-# If an extension does not need to be compiled or graded, put None for that
-# command.  The following strings in the command will be replaced accordingly:
-#   $F - the submitted file
-#   $A - the assignment name for the submitted file
-#   $C - whether the assignment compiled successfully (1 or 0; GRADE_CMD only)
-# For security purposes, the full path to the command should be given.
-# 
-COMPILE_CMD = 0; 
-COMPILED_EXT = 1; #Used to see if compilation was successful by producing such a file
-                  #If set to None, no compiler output to stdout is assumed to 
-                  # mean success
-                  #If set to '', the produced file has no extension
-GRADE_CMD = 2; 
-IS_BINARY = 3; 
-REQ_INITIAL_CAP = 4; 
-DISPLAY_AS_CODE = 5;
-EXT_HANDLERS = {
- 'java': ['javac $F',
-          'class',
-          'java $AGrader $F $C',
-          False, True, True],
- 'txt':  [None, 
-          None, 
-          'java $AGrader $F $C', 
-          False, False, False],
- 'zip':  [None, None, None, 
-          True, False, False],
+    'java': SubmissionType('java', 
+                initialCap=True,
+                processes=[
+                    # may need to fill in full paths to javac and java
+                    CopyGrader(),
+                    JavaCompiler(javacPath='javac', required=False),
+                    CopyGrader(),
+                    JavaGrader(javaPath='java')
+                ])
 }
 
 # Occasionally a weird submission or poorly written grader will cause
@@ -397,8 +364,10 @@ TIMESTAMP_RE = r"(\d{8}-\d{4})"
 SUBMITTED_RE = r"^(\w+)" + ASSIGNMENT_RE + '-' + TIMESTAMP_RE + EXTENSION_RE
 
 # The regex for a grade, which is either OK, X, ERR, or an integer
-# or decimal number.  Grading errors usually produce a file with 
-# only a - or -ERR.  * (0 or more) is used to match the - case.
+# or decimal number.  Grading errors sometimes produce a file with 
+# only a -, so * (0 or more) is used to match this case.  However,
+# that means if used alone to look for a valid grade NOT part of a
+# filename, you'll want to use GRADE_RE + '$'.
 # 
 GRADE_RE = r"([\d\.]*|ERR|OK|X)"
 
@@ -560,7 +529,8 @@ STATUS = {
          "as to which late policy rule should be applied for that period."),
           
 
-    # 510s: general file problems with things other than the grader files
+    # 510s: general file problems with things other than the grader 
+    # processes or grader output file
     'GRADING_ERROR': 
         (510, "Something unexpected happened while trying to grade."),
     'NO_SUBMITTED_FILE': 
@@ -575,27 +545,24 @@ STATUS = {
         (517, "Could either not clear or not copy files into gradezone."),
         
 
-    #520s: problems with a grader or process
+    #520s: problems with a grader processes
     'GRADER_CRASH':
-        (520, "A grading process just crashed unexpectedly. "
-         "See the Tamarin grading log for more information."),
+        (520, "A grading process just crashed unexpectedly with an " 
+        "unanticipated error. See the Tamarin grading log for more "
+        "information."),
     'COULD_NOT_STORE_RESULTS': 
         (521, "Could not write either the submitted file or the grader "
          "results file into the GRADED (sub)directory."),
     'INVALID_GRADE_FORMAT':
         (522, "A grading process or verifying human has returned a grade that "
          "does not match the allowed GRADE_RE format."),
-
-#'NO_GRADER_DIR': (524,
-#"There is no grader directory established for this assignment."),
-'NO_GRADER_FILES': (525,
-"There is a grader directory established for this assignment, "\
-"but it is empty."),
-'GRADER_FAILED': (528, 
-"The grader produced some stderr output to Tamarin "\
-"but failed to actually provide a grade."),
-'NO_GRADER_OUTPUT': (529, 
-"The grader failed to produce any stderr report back to Tamarin."),
+    'INVALID_PROCESS_CONFIGURATION':
+        (523, "A grading process has been incorrectly configured "
+         "and so cannot run. The Tamarin grading log may have more "
+         "information."),
+    'GRADER_ERROR':
+        (524, "A grading process has encountered a known error." 
+         "See the Tamarin grading log for more information."),
 
     # 540s: view problems 
     # (though some actually come from GradedFile constructor)
