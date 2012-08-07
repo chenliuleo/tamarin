@@ -51,7 +51,7 @@ def displayWork(form):
         else:
             #show them all their work
             #start form
-            print('<form action="' + tamarin.CGI_URL + '/view.py" '
+            print('<form action="' + tamarin.CGI_URL + 'view.py" '
                   'method="post">')
             print('<input type="hidden" name="user" value="' + 
                   form.getfirst('user') + '">')
