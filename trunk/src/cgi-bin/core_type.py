@@ -534,29 +534,29 @@ class Assignment:
 class SubmittedFile:
     """
     Represents a file in SUBMITTED_ROOT that has completed its validation by 
-    submit.py and has been timestamped.
+    submit.py and has been timestamped.  The file must exist in SUBMITTED_ROOT
+    unless virtualFile is True.
     
     Details include:
     * filename   - the basename of the file
     * path       - the full path of the file (including the filename)
-    * username   - username of the file's author/submitter
+    * username   - username of the file's author/submitter, as taken from
+                   filename (so may not be all lowercase).
     * assignment - the name of the assignment this file was submitted for
                    (as str, not Assignment object)
     * timestamp  - when the file was submitted, as a Tamarin timestamp
     * fileExt    - the file extension
     * originalFilename - the uploaded filename without the added embedded 
-                         timestamp
-    
+                         timestamp    
     """
     def __init__(self, filename, virtualFile=False):
         """
-        Constructs a SubmittedFile for the given filename.  
+        Constructs a SubmittedFile for the given base filename (no path).  
         
         If the given filename is not of the correct format, throws a
         TamarinError('BAD_GRADE_FILENAME').
         
-        If the virtualFile parameter is True, does not check that the file
-        exists. Otherwise, if the given file does not exist in SUBMITTED_ROOT, 
+        The given file does must exist in a SUBMITTED_ROOT subdirectory or else 
         throws a TamarinError('NO_SUBMITTED_FILE').
         
         """
@@ -573,18 +573,26 @@ class SubmittedFile:
             raise TamarinError('NO_SUBMITTED_FILE', filename)
     
         #load details from above match
-        self.username = fileMatch.group(1).lower()
+        self.username = fileMatch.group(1)
         self.assignment = fileMatch.group(2)
         self.timestamp = fileMatch.group(3)
         self.fileExt = fileMatch.group(4)
         self.originalFilename = fileMatch.group(1) + fileMatch.group(2) + \
                                     '.' + fileMatch.group(4)
+                                    
+    def __str__(self):
+        """ Returns this submitted file's filename. """
+        return self.filename
+    
+    def __repr__(self):
+        return self.__class__.__name__ + "('" + self.filename + "')"
 
 
 class GradedFile(SubmittedFile):
     """
     Represents a file in a GRADED_ROOT subdirectory that has completed the 
-    grading process.
+    grading process.  The corresponding file must exist in the appropriate
+    GRADED_ROOT subdirectory.
     
     Details are the same as for a SubmittedFile, plus:
     
@@ -596,18 +604,13 @@ class GradedFile(SubmittedFile):
     * humanComment - whether a human has appended a comment to the output file
     
     """
-    def __init__(self, filename, virtualFile=False):
+    def __init__(self, filename):
         """
         Constructs a new GradeFile for the given file.
         
         Throws the same TamarinErrors as a SubmittedFile.  
         May also throw any of the errors from the Assignment constructor.
-        
-        If the virtualFile parameter is True, doesn't actually check that 
-        the file exists.  Will also skip reading the corresponding grade 
-        report, and so the instance will lack the grade, verified, and 
-        comment values.
-
+    
         """
         import tamarin
         #let superclass initialize everything
@@ -615,38 +618,37 @@ class GradedFile(SubmittedFile):
         #now reset path variable
         self.assign = Assignment(self.assignment)
         self.path = os.path.join(self.assign.path, filename)
-        if not virtualFile: 
-            if not os.path.exists(self.path):
-                raise TamarinError('NO_SUBMITTED_FILE', filename)
+        if not os.path.exists(self.path):
+            raise TamarinError('NO_SUBMITTED_FILE', filename)
 
-            #add new details            
-            self.graderOutputPath = self.path.replace("." + self.fileExt, 
-                                        "-*." + tamarin.GRADER_OUTPUT_FILE_EXT)
-            gradedGlob = glob.glob(self.graderOutputPath)
-            if not gradedGlob:
-                raise TamarinError('NO_GRADER_RESULTS', filename)
-            elif len(gradedGlob) > 1:
-                raise TamarinError('MULTIPLE_GRADER_RESULTS', filename)
-            self.graderOutputPath = gradedGlob[0]
-            self.graderOutputFilename = os.path.basename(self.graderOutputPath)
+        #add new details            
+        self.graderOutputPath = self.path.replace("." + self.fileExt, 
+                                    "-*." + tamarin.GRADER_OUTPUT_FILE_EXT)
+        gradedGlob = glob.glob(self.graderOutputPath)
+        if not gradedGlob:
+            raise TamarinError('NO_GRADER_RESULTS', filename)
+        elif len(gradedGlob) > 1:
+            raise TamarinError('MULTIPLE_GRADER_RESULTS', filename)
+        self.graderOutputPath = gradedGlob[0]
+        self.graderOutputFilename = os.path.basename(self.graderOutputPath)
 
-            # pull grade from filename
-            found = re.match(tamarin.GRADED_RE, self.graderOutputFilename)
-            try:
-                self.grade = float(found.group(4))
-            except ValueError:
-                self.grade = str(found.group(4))
-                if not self.grade:
-                    self.grade = 'ERR' #empty string, as on a grader failure
+        # pull grade from filename
+        found = re.match(tamarin.GRADED_RE, self.graderOutputFilename)
+        try:
+            self.grade = float(found.group(4))
+        except ValueError:
+            self.grade = str(found.group(4))
+            if not self.grade:
+                self.grade = 'ERR' #empty string, as on a grader failure
 
-            # human verified or comments?
-            human = found.group(5)
-            if human:
-                self.humanVerified = 'H' in human
-                self.humanComment = 'C' in human
-            else:
-                self.humanVerified = False
-                self.humanComment = False                
+        # human verified or comments?
+        human = found.group(5)
+        if human:
+            self.humanVerified = 'H' in human
+            self.humanComment = 'C' in human
+        else:
+            self.humanVerified = False
+            self.humanComment = False                
                 
     def getLateOffset(self):
         """ As per Assignment.getLateOffset for this submission. """
@@ -727,4 +729,39 @@ class GradedFile(SubmittedFile):
         """ As per Assignment.isTooLate for this submission. """
         self.assign.isTooLate(self.timestamp)
     
-    
+    def update(self):
+        """
+        Renames the corresponding file to correspond to current object state.
+         
+        Computes the correct grader output filename based on this graded
+        file's current details, including grade, comments, and verified
+        status.  If this is different than self.graderOutputFilename, 
+        graderOutputFilename is updated and the corresponding file is
+        renamed/moved.  graderOutputPath is also updated.
+        
+        Returns whether the file was actually renamed.
+        
+        """
+        import tamarin
+        
+        # construct current graderOutputFilename (gof)
+        gof = self.username + self.assignment 
+        gof += '-' + self.timestamp + '-' + str(self.grade)
+        if self.humanVerified or self.humanComment:
+            gof += '-'
+            if self.humanVerified:
+                gof += 'H'
+            if self.humanComment:
+                gof += 'C'
+        gof += '.' + tamarin.GRADER_OUTPUT_FILE_EXT
+        
+        if gof != self.graderOutputFilename:
+            # update file
+            gop = os.path.join(os.path.dirname(self.graderOutputPath), gof)
+            os.rename(self.graderOutputPath, gop)
+            self.graderOutputPath = gop
+            self.graderOutputFilename = gof
+            return True
+        else:
+            return False
+

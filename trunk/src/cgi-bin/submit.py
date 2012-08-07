@@ -131,9 +131,9 @@ def startGradePipe(printStatus=True):
                   'queue.</p>')
     
     if printStatus:
-        print('<p>See <a href="' + tamarin.CGI_URL + 
-              '/status.py">status</a> for more on the current state '
-              'of the submitted/grading queue.</p>')
+        print('<p>See <a href="' + tamarin.CGI_URL + 'status.py">status</a> ' +
+              'for more on the current state of the submitted/grading ' 
+              'queue.</p>')
         
     return active
 

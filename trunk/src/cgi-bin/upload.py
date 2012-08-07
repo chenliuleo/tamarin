@@ -258,7 +258,7 @@ def validateUploadedFile(form):
         print("<p>If you are ready to officially submit this uploaded file "
               "for grading, click the button below. </p>")
         print()
-        print('<form action="' + tamarin.CGI_URL + '/submit.py" '
+        print('<form action="' + tamarin.CGI_URL + 'submit.py" '
               'method="post" class="html">')
         print('<input type="hidden" name="uploaded" value="' + filename + '">')
         print('<input type="submit" value="Submit this file" '
@@ -269,7 +269,7 @@ def validateUploadedFile(form):
         printError(err)
         print('<p>')
         print('Due to the above error, your uploaded file was not saved. ' 
-            'Please <a href="' + tamarin.CGI_URL + '/upload.py' + 
+            'Please <a href="' + tamarin.CGI_URL + 'upload.py' + 
             '">return to the upload page</a> and try again.')
         print('</p>')   
     except:

@@ -83,10 +83,11 @@ def displaySubmission(filename, master=False):
             for line in gradeFile:                
                 
                 #grab grade line and mark tentative and/or convert to link
-                if '<p><b>Grade:</b>' in line:
-                    match = re.match(r"(<p><b>Grade:</b>)\s?([^<]+)(</p>)", 
+                if tamarin.GRADE_START_TAG in line:
+                    match = re.match(tamarin.GRADE_START_TAG + 
+                                     r"\s*([^<]+)\s*" + tamarin.GRADE_END_TAG, 
                                      line)
-                    line = match.group(1) + ' '  #start <p> and label
+                    line = tamarin.GRADE_START_TAG  # reconstruct the line
                     if master:
                         #make this a link to modifying the grade             
                         line += '<a href="masterview.py?submission=' + \
@@ -95,14 +96,14 @@ def displaySubmission(filename, master=False):
                             line += ' target="_blank"'
                         line += '>'
                     
-                    line += match.group(2)  #grade
+                    line += match.group(1)  #grade
                     if not submittedFile.humanVerified:
                         line += tamarin.SHORT_UNVERIFIED_GRADE_LABEL
 
                     if master:
                         #end link
                         line += '</a>'
-                    line += match.group(3)  #end paragraph
+                    line += tamarin.GRADE_END_TAG + '\n' #end line
         
                 #markup any grader output lines
                 if tamarin.HIGHLIGHT_PREFIX and \
@@ -245,7 +246,7 @@ def displayUser(user, assignment=None, brief=True, master=False):
     #get assignment list
     if assignment:
         assignment = Assignment(assignment)
-        assignments = [assignment.path]
+        assignments = [assignment.name]
     else:
         assignments = tamarin.getAssignments()
     
@@ -259,8 +260,7 @@ def displayUser(user, assignment=None, brief=True, master=False):
     print('<td class="section">Section: ' + str(details[0]) + '</td>')
     print('</tr></table>')
       
-    for a in assignments:
-        assign = re.match(tamarin.ASSIGNMENT_RE, a).group(1) #grab short name
+    for assign in assignments:
         displayAssignmentSubmissions(user, assign, brief, master)      
     print('</div>')
  
@@ -270,7 +270,7 @@ def displayAssignment(assignment, brief=False, master=False):
     for the given assignment.  (This is basically the "grading" view.)
     """
     # Future: add section filtering?
-    users = tamarin.getUsers().sort()
+    users = tamarin.getUsers()
     for u in users:
         displayUser(u, assignment, brief, master)  
 

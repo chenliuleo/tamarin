@@ -269,7 +269,8 @@ class GradeFile(Process):
         * GradeFile.name - everything up to first .
         * GradeFile.ext - everything after first .
         * GradeFile.path - full path to file's GRADEZONE location
-        * GradeFile.user - all lowercase
+        * GradeFile.username - username as appears in filename
+        * GradeFile.user - username, but all lowercase
         * GradeFile.assignment - for which this file was submitted
         
         Clears the gradezone and copies the submitted file (under its 
@@ -302,11 +303,12 @@ class GradeFile(Process):
         to know why, it should document it somehow in its self.output.
         
         After running all processes, the overall grade is stored in a 
-        <p><b>Grade:</b> grade</p> line.  If any grade is 'ERR', the final 
-        grade is 'ERR'.  Otherwise, if at least one grade was a number, 
-        the grade is the sum of all numerical grades.  If none were numbers, 
-        the grade is 'OK', unless there was at least one 'X'.  This means
-        the grade is 'OK' if there were no processes that returned a grade.
+        'GRADE_START_TAG grade GRADE_END_TAG' line (without the spaces).  
+        If any grade is 'ERR', the final grade is 'ERR'.  Otherwise, if at 
+        least one grade was a number, the grade is the sum of all numerical 
+        grades.  If none were numbers, the grade is 'OK', unless there was 
+        at least one 'X'.  This means the grade is 'OK' if there were no 
+        processes that returned a grade.
         
         Finally, the grader output file ends with another </div>. 
          
@@ -335,7 +337,8 @@ class GradeFile(Process):
             args['GradeFile.filename'] = fn
             args['GradeFile.name'] = fn.split('.', 1)[0]
             args['GradeFile.ext'] = fn.split('.', 1)[1]
-            args['GradeFile.user'] = submitted.username
+            args['GradeFile.username'] = submitted.username
+            args['GradeFile.user'] = submitted.username.lower()
             args['GradeFile.assignment'] =  submitted.assignment
             args['GradeFile.path'] = os.path.join(tamarin.GRADEZONE_ROOT, fn)
             
@@ -447,7 +450,8 @@ class GradeFile(Process):
                 print('<pre>TamarinError: GRADING_CRASH.</pre>', 
                       file=graderOut)
             finally:
-                print('<p><b>Grade:</b> ' + str(grade) + '</p>',file=graderOut)
+                print(tamarin.GRADE_START_TAG + str(grade) + 
+                      tamarin.GRADE_END_TAG, file=graderOut)
                 print('</div>', file=graderOut)
                 graderOut.close()
 

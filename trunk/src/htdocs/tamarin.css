@@ -104,21 +104,21 @@ DIV.submission PRE.code {
   margin-left: 2%;
   margin-right: 2%;
 }
-DIV.grader {  /* section that includes: compiler, grader output, and grade */ 
+DIV.grader {  /* section that includes all Process outputs */ 
   padding: 0 2%;
 }
-DIV.grader SPAN.fail { /* compiler failure status */ 
+DIV.grader SPAN.fail { /* failure status */ 
   font-size: smaller;
   color: #660000;
 }
-DIV.grader SPAN.success { /* compiler passed status */ 
+DIV.grader SPAN.success { /* passed status */ 
   font-size: smaller;
   color: #003300;
 }
-DIV.submission PRE.compiler { /* actual compiler output */ 
+DIV.submission DIV.JavaCompiler PRE { /* compiler output */ 
   padding: 0 2em 1em;
 }
-DIV.submission PRE.grader { /* actual grader output */ 
+DIV.submission DIV.JavaGrader PRE {  
   padding: 0 2em 1em;
   color: #333333;
 }
@@ -138,9 +138,16 @@ DIV.submission PRE.grader .graderFAIL {
   color: #660000;
 }
 
-DIV.submission PRE.comment {  /* comments added later through admin interface */
+DIV.submission DIV.comment { /* comments added later through admin interface */
   padding: 0 2em 1em;
 }
+DIV.submission DIV.comment P { /* content, including initial <b>header</b> */
+}
+
+DIV.submission P.grade {
+  /* grade line, though P aspect could be overridden in tamarin.py settings */
+}
+
 DIV.submission P.notgraded {
   margin-left: 2%;
   margin-right: 2%;
@@ -170,7 +177,7 @@ DIV.masterview P {
 FORM.modify {
   margin-left: 5%;
   margin-right: 5%;
-  padding-left: 1em;
+  padding: 0.6em 1em;
 }
 FORM.modify P {
   margin: 0.4em 0;
@@ -224,4 +231,6 @@ DIV.logout { /* The "close this window" message in a user's view.py of all their
 }
 
 /* from masterview.py */
-P.strip { /* strip and verify all tool output */ }
+P.strip { /* strip and verify-all tool output */
+  margin-top: 1em;
+}
