@@ -674,9 +674,7 @@ class GradedFile(SubmittedFile):
         Returns the penalty due to additional submissions for this assignment.
 
         Penalty can be more than can be covered by the grade itself. 
-        Returns the penalty even for non-numeric grades. Does not consider 
-        tamarin.MAX_RESUBMISSIONS, so extra manual uploads could lead to 
-        higher penalties than normally allowed. 
+        Returns the penalty even for non-numeric grades. 
         
         The submissionCount is a performance boost.  If the number of 
         submissions (including this one) is given here, will be used instead
@@ -693,7 +691,7 @@ class GradedFile(SubmittedFile):
         if submissionCount <= 1:
             return 0
         else:            
-            adj = (len(files) - 1) * tamarin.RESUBMISSION_PENALTY
+            adj = (submissionCount - 1) * tamarin.RESUBMISSION_PENALTY
             return round(adj, tamarin.GRADE_PRECISION)
             
     def getAdjustedGrade(self, submissionCount=None):

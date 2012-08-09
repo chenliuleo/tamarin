@@ -215,15 +215,10 @@ LATE_POLICIES = {
 #    'A01': '+5d:-0',
 }
 
-# The maximum number of times a student may resubmit a submission per
-# assignment.  -1 means unlimited and 0 means no resubmissions.
-#  
-MAX_RESUBMISSIONS = -1
-
 # Number of points to take off of the final submission for each 
-# resubmission made.  Should be a positive value.  Can be floating point.
+# resubmission made.  Should be a negative value.  Can be floating point.
 # 
-RESUBMISSION_PENALTY = 0.1
+RESUBMISSION_PENALTY = -0.1
 
 # Whether students may resubmit at any time that they could turn in an 
 # original submission.  Set to False to allow resubmissions only before 
@@ -245,6 +240,13 @@ from core_grade import JavaCompiler, JavaGrader
 # of each assignment directory may specify the submission type for that
 # assignment.  If it does not, the default ASSIGNMENT_TYPE is used.
 # 
+# As a reminder, the SubmissionType constructor takes the following parameters:
+# fileExt - required
+# encoding - (default: 'utf-8')
+# preformatted - (default: True)
+# initialCap - (default: False)
+# processes - (default: [])
+#
 SUBMISSION_TYPES = {
     'java': SubmissionType('java', 
                 initialCap=True,
@@ -294,13 +296,13 @@ HUMAN_COMMENT_LABEL = " + comment"
 
 # Whether masterview.py links should open in a new window
 # 
-MASTER_LINKS_OPEN_NEW_WINDOW = True
+MASTER_LINKS_OPEN_NEW_WINDOW = False
 
 # TamarinGrader.java marks all of its output lines with a prepend 
 # string ("## " by default).  Set this variable to the same prepend 
 # string if you want to turn on grader output highlighting.  
 # Specifically, if this variable contains anything, all lines starting
-# with the given string will be wrapped by a 
+# with the given string (regardless of Process source) will be wrapped by a 
 # <span class="graderOutputLine"> tag when displayed by displaycore.py, 
 # which then allows for CSS formatting.
 # 
