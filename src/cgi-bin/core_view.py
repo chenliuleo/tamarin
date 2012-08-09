@@ -30,7 +30,9 @@ def displaySubmission(filename, master=False):
     
     Filename means a UsernameA##-########-####.ext filename, which will 
     correspond to a SubmittedFile or GradedFile.
-    If master is True, grade is a link to a modify/comment form.
+
+    If master is True, grade is a link to a modify/comment form and comments
+    include a delete option.
     
     Raises a TamarinError if the given file cannot be displayed.
     """
@@ -80,9 +82,24 @@ def displaySubmission(filename, master=False):
     if isinstance(submittedFile, GradedFile):
         #a graded file
         with open(submittedFile.graderOutputPath, 'r') as gradeFile:
-            for line in gradeFile:                
+            for line in gradeFile:  
                 
-                #grab grade line and mark tentative and/or convert to link
+                # add delete button to comments
+                if master and '<div class="comment' in line:
+                    cid = int(re.search(r'id="comment(\d+)"', line).group(1))
+                    line += ('<form action="' + tamarin.CGI_URL +
+                            'masterview.py" method="post" ' 
+                            'enctype="multipart/form-data" ' 
+                            'class="deleteComment">\n')
+                    line += ('<input type="hidden" name="submission" ' +
+                             'value="' + filename + '">\n')
+                    line += ('<input type="hidden" name="deleteComment" ' +
+                             'value="' + str(cid) + '">\n')
+                    line += ('<input type="submit" ' +
+                             'value="Delete Comment">\n')
+                    line += '</form>\n'           
+                
+                # grab grade line and mark tentative and/or convert to link
                 if tamarin.GRADE_START_TAG in line:
                     match = re.match(tamarin.GRADE_START_TAG + 
                                      r"\s*([^<]+)\s*" + tamarin.GRADE_END_TAG, 
@@ -105,7 +122,7 @@ def displaySubmission(filename, master=False):
                         line += '</a>'
                     line += tamarin.GRADE_END_TAG + '\n' #end line
         
-                #markup any grader output lines
+                # markup any grader output lines
                 if tamarin.HIGHLIGHT_PREFIX and \
                         line.startswith(tamarin.HIGHLIGHT_PREFIX):
                     #</span> comes after line break, which is slightly annoying
@@ -281,8 +298,8 @@ def modifySubmission(filename):
     (in masterview.py), which deals with the actual hassle of storing 
     the changes.
     """
-    #doesn't need to be master, since don't need grade link
-    displaySubmission(filename)
+    # doesn't need grade link, but may want delete comment option, so master
+    displaySubmission(filename, master=True)
     submittedFile = GradedFile(filename)
     print('<form class="modify" action="masterview.py#bottom" method="post">')
     print('<input type="hidden" name="submission" value="' + filename + '">')

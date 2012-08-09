@@ -59,7 +59,7 @@ DIV.error P {
   margin: 1em !important; /* so not overridden in views below */
 }
 
-PRE.code, DIV.code {  /* from validate.py; also used by submission view (below) */
+PRE.code, DIV.code {  /* from upload.py; also used by submission view (below) */
   padding: 2ex;
   border: 1px dotted #666666;
 }
@@ -123,6 +123,7 @@ DIV.submission DIV.JavaGrader PRE {
   color: #333333;
 }
 DIV.submission PRE.grader .graderOutputLine {
+  /* span inserted around lines that start with HIGHLIGHT_PREFIX */
   color: #000000;
 }
 DIV.submission PRE.grader .graderPASS {
@@ -139,7 +140,6 @@ DIV.submission PRE.grader .graderFAIL {
 }
 
 DIV.submission DIV.comment { /* comments added later through admin interface */
-  padding: 0 2em 1em;
 }
 DIV.submission DIV.comment P { /* content, including initial <b>header</b> */
 }
@@ -163,13 +163,13 @@ DIV.masterview {
   margin: 0 1% 0 5%;
 }
 DIV.masterview FORM {
-  margin: 1.5em 2em;
+  margin: 1em 2em 1.5em;
 }
 DIV.masterview H4 {
-  margin: 0.5em 0;
+  margin: 0.5em 1em;
 }
 DIV.masterview P {
-  margin: 0.5em 1em;
+  margin: 1em 1em 0.5em;
 }
 
 
@@ -182,6 +182,10 @@ FORM.modify {
 FORM.modify P {
   margin: 0.4em 0;
   font-size: smaller;
+}
+FORM.deleteComment {
+  float: right;
+  margin: 0 1em;
 }
 
 
@@ -225,7 +229,7 @@ DIV.user TABLE TD.section {
   text-align: right;
 }
 
-DIV.logout { /* The "close this window" message in a user's view.py of all their work */
+DIV.logout { /* The "close this window" message in user's view.py  */
   margin: 0.2em auto 0.3em auto;
   text-align: center;
 }
@@ -233,4 +237,10 @@ DIV.logout { /* The "close this window" message in a user's view.py of all their
 /* from masterview.py */
 P.strip { /* strip and verify-all tool output */
   margin-top: 1em;
+}
+
+PRE.gradesheet { /* formatting of gradesheet view. */
+  margin: 2em;
+  padding: 0.2em;
+  border: 1px solid black;
 }

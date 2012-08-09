@@ -215,7 +215,11 @@ def validateUploadedFile(form):
                   'cannot display contents here</i> ]')
         else:
             # prevent disappearing code due to code test looking like html tags
-            print(html.escape(filecontents))
+            filecontents = html.escape(filecontents)
+            if assignment.type.preformatted:
+                print(filecontents)
+            else:
+                print(filecontents.replace('\n', '<br>\n'))            
         print('</pre>' if assignment.type.preformatted else '</div>')
       
         # Done!
@@ -250,8 +254,9 @@ def validateUploadedFile(form):
             if tamarin.RESUBMISSION_PENALTY:
                 print('If you submit this uploaded file, it will be a ' +
                       '(resubmission * ' + str(submitCount) + '), ')
-                print('and so its final score will be reduced by -' + 
-                      str(submitCount * tamarin.RESUBMISSION_PENALTY) + 
+                print('and so its final score will be reduced by ' + 
+                      str(round(submitCount * tamarin.RESUBMISSION_PENALTY, 
+                                tamarin.GRADE_PRECISION)) + 
                       '.</p>')
                 
         # provide submit button

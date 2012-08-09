@@ -118,7 +118,10 @@ def startGradePipe(printStatus=True):
         # First, make sure the redirected input file exists
         open(tamarin.GRADEPIPE_IN, 'w').close()
         # Spawn the gradepipe, redirecting in/out to get a clean separation
-        # End of process will close the files.                     
+        # End of process will close the files.
+        # NOTE: If you get a crash complaining about this line (probably
+        # only the last "stderr" line of which is printed in the error 
+        # message), check that your GRADEPIPE_CMD is valid.
         subprocess.Popen(tamarin.GRADEPIPE_CMD.split(), 
                          stdin=open(tamarin.GRADEPIPE_IN), 
                          stdout=open(tamarin.GRADEPIPE_OUT, 'w'), 

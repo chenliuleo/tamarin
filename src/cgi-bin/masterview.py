@@ -39,17 +39,32 @@ def main(form=None):
             if 'submission' not in form or 'grade' not in form:
                 # may have a comment too, but that can be blank
                 tamarin.printHeader('Masterview: Modify error')
-                raise TamarinError('BAD_SUBMITTED_FORM')
-        
-            tamarin.printHeader("Modified: " + form.getfirst('submission'))
+                raise TamarinError('BAD_SUBMITTED_FORM')        
+            
+            tamarin.printHeader("Masterview: Modified " + 
+                                form.getfirst('submission'))
             modifySubmission(form.getfirst('submission'), 
                              form.getfirst('grade'), form.getfirst('verify'),
                              form.getfirst('comment'))
             core_view.displaySubmission(form.getfirst('submission'), 
-                                          master=True)
+                                        master=True)
+        elif 'deleteComment' in form:
+            # delete a comment from a submission
+            if 'submission' not in form:
+                tamarin.printHeader('Masterview: Delete comment error')
+                raise TamarinError('BAD_SUBMITTED_FORM')
+            
+            tamarin.printHeader('Masterview: Deleted comment #' + 
+                                form.getfirst('deleteComment'))
+            deleteComment(form.getfirst('submission'), 
+                          form.getfirst('deleteComment'))
+            print('<br>')
+            core_view.displaySubmission(form.getfirst('submission'), 
+                                        master=True)
     
         elif 'submission' in form:
-            # view a single specific submission (without modify, caught above)
+            # view a single specific submission 
+            # (without modify or deleteComment, caught above)            
             tamarin.printHeader('Masterview: ' + form.getfirst('submission'))
             print('<br>')
             core_view.modifySubmission(form.getfirst('submission'))
@@ -90,6 +105,10 @@ def main(form=None):
                       'running.')
                 print('<p>See <a href="' + tamarin.CGI_URL + 
                       'status.py">status</a> ' + 'for more.</p>')
+        elif 'gradesheet' in form:
+                print("Content-Type: text/plain")
+                print()
+                displayGradeSheet(form.getfirst('comma'))
         else:
             tamarin.printHeader('Masterview: No valid option submitted')
             raise TamarinError('BAD_SUBMITTED_FORM')          
@@ -99,7 +118,8 @@ def main(form=None):
     except:
         tamarin.printError('UNHANDLED_ERROR')
     finally:
-        tamarin.printFooter()
+        if not (form and 'gradesheet' in form):
+            tamarin.printFooter()
 
 
 def displayForm():
@@ -147,8 +167,26 @@ def displayForm():
 </select>
 <input type="submit" value="View">
 </form>
+
+<h4>Grade sheet view</h4>
+    """)
+    print('<form action="' + tamarin.CGI_URL + 'masterview.py" method="get">')
+    print("""
+<p>
+Produces a tab-separated plain-text view of adjusted Tamarin scores for all 
+users across all assignments.  This can easily be copy-and-pasted into a 
+spreadsheet program.  
+<p>
+<input type="hidden" name="gradesheet" value="1">
+<input type="checkbox" name="comma"> 
+Use commas instead of tabs and suppress username-column padding.
+<p>
+<input type="submit" value="Generate"
+title="You may need to paste into a text editor first and then copy again 
+from there before your spreadsheet will accept it correctly.">
+</p>
+</form>
 </div>
-<br>
 
 <div class="masterview">
 <h3>Tools</h3>
@@ -193,6 +231,148 @@ as shown by
     print('<p><input type="submit" value="Strip"></p>')
     print('</form>')
     print('</div>')
+
+
+def displayGradeSheet(comma=False):
+    """
+    Produces a grade sheet view for all users and assignments.
+    
+    Rows correspond to users, sorted by username.  Rows contain the Tamarin 
+    adjusted scores for each assignment followed by the average grade: 
+    (adjusted total / total possible) * 100.  
+    
+    By default, uses tabs as delimiters, with the user column padded to 14 
+    characters to maintain a readable format even when faced with slightly 
+    longer usernames.  If comma is True, just uses commas and no padding. 
+
+    Unverified grades (and any totals depending on them) are marked
+    with an appended ?. 
+    
+    Missing/unsubmitted grades are left blank.  Submitted but ungraded
+    submissions are ignored (so blank if no other submissions for that 
+    assignment).
+    
+    The total grade is the sum of all numeric values, ignoring any 
+    OK, X, or ERR grades.  If there are no numeric values, the final grade
+    is ERR, X, or OK (in that order) if such a value is a component grade.
+    Otherwise, the final grade is blank.  If at least one score is 
+    tentative (unverified), the final grade is tentative.
+
+    """
+    users = tamarin.getUsers()
+    delim = ',' if comma else '\t'
+    
+    # build data structure 
+    sheet = dict()
+    for user in users:
+        sheet[user] = {}  # scores keyed by assignment name
+    
+    # now process each assignment
+    assignments = tamarin.getAssignments()  # already sorted
+    for assign in assignments:
+        subs = tamarin.getSubmissions(assignment=assign, submitted=False)
+        # overwrite until last sub for each user, keyed by lower username
+        submissions = {}
+        for sub in subs:
+            sub = os.path.basename(sub)
+            usr = re.match(r"(\w+)" + assign, sub).group(1).lower()
+            submissions[usr] = sub
+        
+        for user in users:
+            if user in submissions:
+                sub = GradedFile(submissions[user])
+                grd = sub.getAdjustedGrade()
+
+                # add to total grade list: (grade, verified?)
+                if 'Grade' not in sheet[user]:
+                    sheet[user]['Grade'] = [grd, True]
+                elif isinstance(grd, float) or isinstance(grd, int):
+                    # grd is a number, so overwrite/adds to whatever is there
+                    if isinstance(sheet[user]['Grade'][0], str):
+                        sheet[user]['Grade'][0] = grd
+                    else:
+                        sheet[user]['Grade'][0] += grd
+                else:
+                    # grd is a string, so maybe replace any str or else ignore
+                    if isinstance(sheet[user]['Grade'][0], str):
+                        if sheet[user]['Grade'][0] == 'OK':
+                            sheet[user]['Grade'][0] = grd
+                        elif sheet[user]['Grade'][0] == 'X' and grd != 'OK':
+                            sheet[user]['Grade'][0] = grd
+                        else:
+                            pass  # grade is already ERR
+                    else:
+                        pass  # grade is a number, so ignore this string grd
+
+                grd = str(grd)
+                if not sub.humanVerified:
+                    grd += '?'
+                    sheet[user]['Grade'][1] = False
+                sheet[user][assign] = grd 
+            else:
+                sheet[user][assign] = ''  # blank
+            
+    # print details    
+    # header
+    print(',' if comma else '{:14}\t'.format(' '), end='')
+    for assign in assignments:
+        print(assign + delim, end='')
+    print('Grade')
+
+    for user in users:
+        print(user + ',' if comma else '{:14}\t'.format(user), end='')
+        for assign in assignments:
+            print(sheet[user][assign] + delim, end='')
+        # print final grade
+        if 'Grade' in sheet[user]:
+            print(sheet[user]['Grade'][0], end='')
+            if not sheet[user]['Grade'][1]:
+                print('?', end='')
+        print('')
+        
+
+def deleteComment(submission, commentID):
+    """
+    Removes the comment with the given ID from the grader file for submission.
+    Submission is a filename.  If the commentID cannot be found, raises a
+    TamarinError('BAD_SUBMITTED_FORM').
+    """
+    sub = GradedFile(submission)
+
+    with open(sub.graderOutputPath , 'r') as filein:
+        contents = ""
+        otherComments = False
+        deleting = False
+        deleted = False
+        
+        for line in filein:
+            if '<div class="comment"' in line:
+                thisId = int(re.search(r'id="comment(\d+)"', line).group(1))
+                if str(thisId) == commentID:
+                    # delete all lines of this comment until end tag
+                    deleting = True
+                else:
+                    otherComments = True
+            
+            if not deleting:
+                contents += line
+                
+            if deleting and '</div><!--comment' + str(commentID) in line:
+                deleting = False
+                deleted = True
+
+    if not deleted:
+        raise TamarinError('BAD_SUBMITTED_FORM', 
+                           "Could not deleteComment=" + str(commentID))
+                                 
+    # dump file contents back into grader file
+    with open(sub.graderOutputPath, 'w') as fileout:
+        fileout.write(contents)
+    
+    if not otherComments:    
+        # deleted last comment, so need to update filename
+        sub.humanComment = False
+        sub.update()    
 
 
 def modifySubmission(submission, newGrade, verified, comment=None):
@@ -240,6 +420,7 @@ def modifySubmission(submission, newGrade, verified, comment=None):
         for line in filein:
             if '<div class="comment"' in line:
                 # record ID of last comment seen in file
+                # (see also: core_view.displaySubmission)
                 lastId = int(re.search(r'id="comment(\d+)"', line).group(1))
             
             if tamarin.GRADE_START_TAG in line:
