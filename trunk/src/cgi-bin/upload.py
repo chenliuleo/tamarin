@@ -215,11 +215,10 @@ def validateUploadedFile(form):
                   'cannot display contents here</i> ]')
         else:
             # prevent disappearing code due to code test looking like html tags
-            filecontents = html.escape(filecontents)
             if assignment.type.preformatted:
-                print(filecontents)
+                print(html.escape(filecontents))
             else:
-                print(filecontents.replace('\n', '<br>\n'))            
+                print(html.escape(filecontents).replace('\n', '<br>\n'))            
         print('</pre>' if assignment.type.preformatted else '</div>')
       
         # Done!

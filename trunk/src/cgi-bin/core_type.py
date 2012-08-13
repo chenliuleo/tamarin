@@ -526,7 +526,7 @@ class Assignment:
             submittedTimestamp = tamarin.convertTimeToTimestamp()
         if self.policies:
             # just look at last one (already sorted)
-            return submittedTimestamp <= self.policies[-1].end
+            return submittedTimestamp > self.policies[-1].end
         else:
             return self.isLate()
         
@@ -652,7 +652,7 @@ class GradedFile(SubmittedFile):
                 
     def getLateOffset(self):
         """ As per Assignment.getLateOffset for this submission. """
-        self.assign.getLateOffset(self.timestamp)
+        return self.assign.getLateOffset(self.timestamp)
     
     def getLateGradeAdjustment(self):
         """
@@ -666,7 +666,7 @@ class GradedFile(SubmittedFile):
             return 0
         else:
             return policy.getGradeAdjustment(self.grade, 
-                                             self.assignment.maxScore,
+                                             self.assign.maxScore,
                                              self.timestamp)
     
     def getResubmissionGradeAdjustment(self, submissionCount=None):
