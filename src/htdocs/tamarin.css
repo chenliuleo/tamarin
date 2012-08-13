@@ -75,6 +75,11 @@ SPAN.gradequeue {  /* from status.py */
  * For the various displays (from view.py, etc)
  */
  
+TABLE.assignment TD.reason I {
+  font-size: small;
+  font-style: normal;
+} 
+ 
 /* submission view */
 DIV.submission { 
   margin: 0.4em 5%;
@@ -122,20 +127,24 @@ DIV.submission DIV.JavaGrader PRE {
   padding: 0 2em 1em;
   color: #333333;
 }
-DIV.submission PRE.grader .graderOutputLine {
-  /* span inserted around lines that start with HIGHLIGHT_PREFIX */
+
+/* span/markup inserted around lines that start with HIGHLIGHT_PREFIX */
+/* Usually found in DIV.??? PRE SPAN.xxx, where ??? is the name of 
+   the grader Process and xxx is the name below.  But code will markup
+   if found anywhere in grader file. */
+DIV.submission .graderOutputLine {
   color: #000000;
 }
-DIV.submission PRE.grader .graderPASS {
+DIV.submission .graderPASS {
   color: #006600;
 }
-DIV.submission PRE.grader .graderEXTRA {
+DIV.submission .graderEXTRA {
   color: #000033;
 }
-DIV.submission PRE.grader .graderPART {
+DIV.submission .graderPART {
   color: #663300;
 }
-DIV.submission PRE.grader .graderFAIL {
+DIV.submission .graderFAIL {
   color: #660000;
 }
 

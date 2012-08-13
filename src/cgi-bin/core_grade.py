@@ -198,6 +198,7 @@ class GradePipe(Process):
         try:
             #loop over submitted files as long as there are more to grade
             gradedCount = 0
+            failedCount = 0
             badFiles = []
             gf = GradeFile()
 
@@ -212,12 +213,14 @@ class GradePipe(Process):
                 success = gf.run(args, os.path.basename(submitted[0]))
                 if success:
                     gradedCount += 1
-                elif tamarin.LEAVE_PROBLEM_FILES_IN_SUBMITTED:
-                    badFiles.append(submitted[0])
+                else:
+                    failedCount += 1
+                    if tamarin.LEAVE_PROBLEM_FILES_IN_SUBMITTED:
+                        badFiles.append(submitted[0])
     
             # done looping
             self.logger.info("%d of %d files successfully graded.", 
-                             gradedCount, gradedCount + len(badFiles))
+                             gradedCount, gradedCount + failedCount)
         except:
             self.logger.exception("Crashed unexpectedly!")
 
@@ -365,7 +368,7 @@ class GradeFile(Process):
                 for file in glob.glob(outName):
                     os.remove(file)
                     
-                outName = outName.replace('-*.', '-.')  # grade-less form                      
+                outName = outName.replace('-*.', '-.')  # grade-less form
                 graderOut = open(outName, 'w')
                 print('<div class="grader">', file=graderOut)
             except:
@@ -415,7 +418,7 @@ class GradeFile(Process):
                                 # already formatted
                                 print(p.output, file=graderOut)
                             else:
-                                print('<pre>' + html.escape(p.output, 
+                                print('<pre>\n' + html.escape(p.output, 
                                                             quote=False) + 
                                       '</pre>', file=graderOut)
                         print('</div>', file=graderOut)
@@ -469,7 +472,7 @@ class GradeFile(Process):
                     shutil.move(submitted.path, newLoc)  
             except:
                 self.logger.exception("Could not rename/move final results.")
-                raise TamarinError('COULD_NOT_STORE_RESULTS', outName)                
+                raise TamarinError('COULD_NOT_STORE_RESULTS', outName)
 
             # SUCCESS!
             self.logger.info("%s -> %s", fInS, grade)
@@ -683,10 +686,11 @@ class JavaGrader(Process):
         if not os.path.exists(os.path.join(tamarin.GRADEZONE_ROOT, 
                                            graderName + '.class')):
             raise TamarinError('GRADER_ERROR', 
-                               graderName + ".class is not in the gradezone.")        
+                               graderName + ".class is not in the gradezone.")
         try:            
             compiled = 1 if args['JavaCompiler.compiled'] else 0
-            cmd = (self.java, graderName, str(compiled))
+            subfile = args['GradeFile.filename']
+            cmd = (self.java, graderName, subfile, str(compiled))
             grader = subprocess.Popen(cmd, 
                                       stdout=subprocess.PIPE, 
                                       stderr=subprocess.PIPE,
@@ -709,6 +713,6 @@ class JavaGrader(Process):
             self.output += 'GRADER_ERROR: The Tamarin grader did not '
             self.output += 'return a valid grade on stderr.\n'
             self.output += 'Instead, its dying words were: \n'
-            self.output += str(self.grade) + '\n'
+            self.output += str(stderr) + '\n'
             self.grade = 'ERR'
             return False

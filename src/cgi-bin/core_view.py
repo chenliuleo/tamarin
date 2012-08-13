@@ -181,13 +181,16 @@ def displayAssignmentSubmissions(user, assignmentName,
             
             if lateness or resubmits:
                 # explain grade calcs
-                reason = '[= ' + lastFile.grade
+                reason = '[= ' + str(lastFile.grade)
                 if lateness:
                     reason += ' ' + str(lateness)
-                    reason += ' (' + lastFile.getLateOffset() + ')'
+                    offset = lastFile.getLateOffset()
+                    label = 'early' if offset[0] == '-' else 'late'
+                    reason += ' <i>(' + label + ' ' + offset + ')</i>'
                 if resubmits:
                     reason += ' ' + str(resubmits)
-                    reason += ' (' + str(len(files) - 1) + ' resubmits)'
+                    reason += ' <i>(' + str(len(files) - 1) + \
+                              '&nbsp;resubmits)</i>'
                 reason += ']'
             elif lastFile.isLate():
                 # just a little informational timestamping

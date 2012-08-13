@@ -118,7 +118,7 @@ GRADEPIPE_DISABLED =os.path.join(STATUS_ROOT, 'gradepipe.off')
 # XXX: This fix works under Linux, but not under Windows.
 # 
 GRADEPIPE_IN = os.path.join(STATUS_ROOT, 'null.txt')
-GRADEPIPE_OUT = os.path.join(STATUS_ROOT, 'gradepipe.output')
+GRADEPIPE_OUT = os.path.join(STATUS_ROOT, 'gradepipe.log')
 
 # The command needed to spawn the gradepipe (relative to CGI_ROOT) 
 # as a separate process.  Used in submit.py.  Remember to use Python 3. 
@@ -256,7 +256,8 @@ SUBMISSION_TYPES = {
                     JavaCompiler(javacPath='javac', required=False),
                     CopyGrader(),
                     JavaGrader(javaPath='java')
-                ])
+                ]),
+    'txt':  SubmissionType('txt', preformatted=False),                    
 }
 
 # Occasionally a weird submission or poorly written grader will cause
