@@ -15,7 +15,7 @@ If all is correct, copies the file to UPLOADED_ROOT and will confirm
 that the user wants to submit this uploaded file for grading.
 
 Part of Tamarin, by Zach Tomaszewski.  
-Created" 06 Jun 2008.
+Created: 06 Jun 2008.
 
 """
 

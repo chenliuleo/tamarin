@@ -90,6 +90,7 @@ STRIPPED_ROOT = os.path.join(TAMARIN_ROOT, 'stripped')
 
 # Where to dump various files created as Tamarin runs to indicate
 # its status.  (See FILES section below.)
+# 
 STATUS_ROOT = os.path.join(TAMARIN_ROOT, 'status')
 
 
@@ -216,7 +217,7 @@ LATE_POLICIES = {
 }
 
 # Number of points to take off of the final submission for each 
-# resubmission made.  Should be a negative value.  Can be floating point.
+# resubmission made.  Should be <= 0.  Can be floating point.
 # 
 RESUBMISSION_PENALTY = -0.1
 
@@ -271,9 +272,9 @@ SUBMISSION_TYPES = {
 # have to keep moving them back while tweaking the grader.  (Default: False)
 #
 # There are a couple serious problems where files get left in SUBMITTED
-# even when this is True.
+# even when this is False.
 # 
-LEAVE_PROBLEM_FILES_IN_SUBMITTED = True #False
+LEAVE_PROBLEM_FILES_IN_SUBMITTED = False
 
 
 
@@ -334,7 +335,7 @@ HIGHLIGHT_ELEMENTS = ['PASS', 'FAIL', 'PART', 'EXTRA']
 # The date of the last edit of this Tamarin version 
 # (shown in the footers of generated pages)
 # 
-TAMARIN_VERSION = '29 May 2012'
+TAMARIN_VERSION = '13 Aug 2012'
 
 # The regex for an assignment name.
 # Formed by a capital letter, a 2-digit number, and an optional 
@@ -579,14 +580,11 @@ STATUS = {
 
     # 540s: view problems 
     # (though some actually come from GradedFile constructor)
-'COULD_NOT_READ': 
-        (541, "Could not read one of the files required to produce "
-         "this view."),
     'NO_GRADER_RESULTS': 
-        (542, "Found no grader output file for this (supposedly) "
+        (541, "Found no grader output file for this (supposedly) "
          "graded file."),
     'MULTIPLE_GRADER_RESULTS': 
-        (543, "Found multiple grader output files (instead of only one) "
+        (542, "Found multiple grader output files (instead of only one) "
          "associated with this graded file."),          
 }
 

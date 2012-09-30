@@ -238,8 +238,7 @@ def displayGradeSheet(comma=False):
     Produces a grade sheet view for all users and assignments.
     
     Rows correspond to users, sorted by username.  Rows contain the Tamarin 
-    adjusted scores for each assignment followed by the average grade: 
-    (adjusted total / total possible) * 100.  
+    adjusted scores for each assignment followed by the total adjusted score. 
     
     By default, uses tabs as delimiters, with the user column padded to 14 
     characters to maintain a readable format even when faced with slightly 
@@ -252,11 +251,11 @@ def displayGradeSheet(comma=False):
     submissions are ignored (so blank if no other submissions for that 
     assignment).
     
-    The total grade is the sum of all numeric values, ignoring any 
-    OK, X, or ERR grades.  If there are no numeric values, the final grade
+    The total score is the sum of all numeric values, ignoring any 
+    OK, X, or ERR grades.  If there are no numeric values, the total
     is ERR, X, or OK (in that order) if such a value is a component grade.
-    Otherwise, the final grade is blank.  If at least one score is 
-    tentative (unverified), the final grade is tentative.
+    Otherwise, the total is blank.  If at least one score is 
+    tentative (unverified), the total is also tentative.
 
     """
     users = tamarin.getUsers()
@@ -284,21 +283,21 @@ def displayGradeSheet(comma=False):
                 grd = sub.getAdjustedGrade()
 
                 # add to total grade list: (grade, verified?)
-                if 'Grade' not in sheet[user]:
-                    sheet[user]['Grade'] = [grd, True]
+                if 'Total' not in sheet[user]:
+                    sheet[user]['Total'] = [grd, True]
                 elif isinstance(grd, float) or isinstance(grd, int):
                     # grd is a number, so overwrite/adds to whatever is there
-                    if isinstance(sheet[user]['Grade'][0], str):
-                        sheet[user]['Grade'][0] = grd
+                    if isinstance(sheet[user]['Total'][0], str):
+                        sheet[user]['Total'][0] = grd
                     else:
-                        sheet[user]['Grade'][0] += grd
+                        sheet[user]['Total'][0] += grd
                 else:
                     # grd is a string, so maybe replace any str or else ignore
-                    if isinstance(sheet[user]['Grade'][0], str):
-                        if sheet[user]['Grade'][0] == 'OK':
-                            sheet[user]['Grade'][0] = grd
-                        elif sheet[user]['Grade'][0] == 'X' and grd != 'OK':
-                            sheet[user]['Grade'][0] = grd
+                    if isinstance(sheet[user]['Total'][0], str):
+                        if sheet[user]['Total'][0] == 'OK':
+                            sheet[user]['Total'][0] = grd
+                        elif sheet[user]['Total'][0] == 'X' and grd != 'OK':
+                            sheet[user]['Total'][0] = grd
                         else:
                             pass  # grade is already ERR
                     else:
@@ -307,7 +306,7 @@ def displayGradeSheet(comma=False):
                 grd = str(grd)
                 if not sub.humanVerified:
                     grd += '?'
-                    sheet[user]['Grade'][1] = False
+                    sheet[user]['Total'][1] = False
                 sheet[user][assign] = grd 
             else:
                 sheet[user][assign] = ''  # blank
@@ -317,16 +316,19 @@ def displayGradeSheet(comma=False):
     print(',' if comma else '{:14}\t'.format(' '), end='')
     for assign in assignments:
         print(assign + delim, end='')
-    print('Grade')
+    print('Total')
 
     for user in users:
         print(user + ',' if comma else '{:14}\t'.format(user), end='')
         for assign in assignments:
             print(sheet[user][assign] + delim, end='')
-        # print final grade
-        if 'Grade' in sheet[user]:
-            print(sheet[user]['Grade'][0], end='')
-            if not sheet[user]['Grade'][1]:
+        # print final total
+        if 'Total' in sheet[user]:
+            if isinstance(sheet[user]['Total'][0], float):
+                sheet[user]['Total'][0] = round(sheet[user]['Total'][0], 
+                                                tamarin.GRADE_PRECISION)
+            print(sheet[user]['Total'][0], end='')
+            if not sheet[user]['Total'][1]:
                 print('?', end='')
         print('')
         
