@@ -84,7 +84,7 @@ public class TamarinGrader {
   public double epsilon = 1e-9;
 
   /**
-   * If <code>true</code>, will mark any testMethod description in which
+   * If set, will mark any testMethod description in which
    * the use of {@link #epsilon} determined the success of the test.
    * Specifically, when the expected and actual result of a method test
    * are deemed equal due to the use of {@link #epsilon} but are not
@@ -172,6 +172,14 @@ public class TamarinGrader {
    */
   public boolean echoInput = true;
 
+  /**
+   * Whether to replace any \n, \t, and other escape characters in a String
+   * when printed as part of argument, expected, or actual results when
+   * testing a method. Will also surround the String in "quotes".
+   * This is never applied to a program's output, though.  (Default: false)
+   */
+  public boolean escapeStrings = false;
+
 
   //--Advanced features--
 
@@ -250,6 +258,15 @@ public class TamarinGrader {
    * this off <b>only</b> when debugging!
    */
   protected boolean redirectStreams = true;
+
+  /**
+   * When a method throws an exception, usually just the name is printed in
+   * Tamarin's output.  However, sometimes when debugging grader or reflection
+   * details, it's handy to see more information, such as when one exception
+   * caused another one.  Ugly, but useful.  (Default: false)
+   */
+  protected boolean stackTraceOn = false;
+
 
 
   //storage for the real System.in, out, and err, so they can be replaced again
@@ -1044,6 +1061,26 @@ public class TamarinGrader {
   }
 
   /**
+   * Calls <code>testMethod</code> with the default test description, followed
+   * but a call to result with no description to update the grade based on the
+   * results of testMethod.
+   *
+   * value is the point-value worth of this test. The remainder of the
+   * arguments are for as testMethod.  Produces 2 lines of output.
+   *
+   * Like the result methods, returns whether the points earned by this test:
+   * value if the test passed or 0 if it failed.
+   */
+  public double gradeMethod(double value, Object expected,
+                             Object inst, String methodName, Object... args) {
+    //XXX: would be nice to have this on one line, but major overhaul required!
+    //Also, many test description + results would exceed 80 chars anyway.
+    boolean ok = this.testMethod(null, expected, inst, methodName, args);
+    return this.result(ok, "", value);
+  }
+
+
+  /**
    * Simply invokes the given method safely.
    * Does not print any output.
    * Returns the object returned by the method (which may be null).
@@ -1296,7 +1333,11 @@ public class TamarinGrader {
 
       //print result (even if nothing expected)
       if (!silent) {
-        System.out.print((method.getReturnType().equals(void.class)) ? "[void]" : result);
+        if (method.getReturnType().equals(void.class)) {
+          System.out.print("[void]");
+        }else {
+          System.out.print(this.toString(result));
+        }
       }
 
       //now, see if success should actually be based on expected vs. result
@@ -1323,6 +1364,15 @@ public class TamarinGrader {
             System.out.print(this.markEpsilon);
           }
 
+        }else if (expected.getClass().isArray()) {
+          //Need to compare array, which may be a diverse primitive type.
+          //XXX: Quick fix: just compare their String representation, since
+          //toString already handles the conversion.  Only drawback that comes
+          //to mind: an int[] and Integer[] would be considered equal to each
+          //other (and similarly for other wrapper classes).  If I ever
+          //implement a deepEquals array comparison, put a call to that here instead.
+          success = this.toString(expected).equals(this.toString(result));
+
         }else {
           //comare normally using .equals
           success = (result == null) ? result == expected : result.equals(expected);
@@ -1342,7 +1392,9 @@ public class TamarinGrader {
         System.out.print("[ERROR: " + ie.getMessage());
         if (ie.getCause() != null) {
           System.out.print(": "+ ie.getCause());
-//XXX: ie.getCause().printStackTrace();
+          if (this.stackTraceOn) {
+            ie.getCause().printStackTrace();
+          }
         }
         System.out.println("]");
       }
@@ -1363,7 +1415,9 @@ public class TamarinGrader {
       }else {
         //just a normal error from method
         if (!silent) System.out.println("[ERROR: Method threw " + ite.getCause() + "]");
-//XXX: ite.getCause().printStackTrace();
+        if (this.stackTraceOn) {
+          ite.getCause().printStackTrace();
+        }
       }
     }
     return success;
@@ -1371,6 +1425,24 @@ public class TamarinGrader {
 
 
 //===== PROTECTED HELPER METHODS =====
+
+  /**
+   * Escapes any Java escape characters in the given string.
+   * From http://docs.oracle.com/javase/tutorial/java/data/characters.html
+   * these characters include: \b, \t, \n, \r, \f, \", \\.
+   * Single quotes are not replaced (since they don't need to be escaped within a string.)
+   * Returns a version of the string with these changes made.
+   */
+  protected String escapeString(String str) {
+    //ugh... I miss Python for this.
+    //Important to replace literal \s first.
+    String[] escapes = {"\\", "\b", "\t", "\n", "\r", "\f", "'", "\""};
+    String[] equiv   = {"\\\\", "\\b",  "\\t", "\\n", "\\r", "\\f", "\\'", "\\\"",};
+    for (int i = 0; i < escapes.length; i++) {
+      str = str.replace(escapes[i], equiv[i]);
+    }
+    return '"' + str + '"';
+  }
 
   /**
    * Tries to find the given constructor (with the given parameter list)
@@ -1528,20 +1600,14 @@ public class TamarinGrader {
   /**
    * Prints the given args as a comma-separated list in parantheses.
    * If args as a whole is null, nothing is printed in the ()s.
-   * If any specific arg is null, it is printed as 'null'.
-   * If any arg is an array, its contents are expanded in a []s.
+   * For the format of each arg, see {@link #toString(Object)}.
    * Does <i>not</i> terminate the output with a newline.
    */
   protected void printArgs(Object[] args) {
       System.out.print("(");
       if (args != null) {
         for (int i = 0; i < args.length; i++) {
-          //print out any arrays
-          if (args[i] != null && args[i].getClass().isArray()) {
-            System.out.print(java.util.Arrays.toString((Object[]) args[i]));
-          }else {
-            System.out.print(args[i]);
-          }
+          System.out.print(this.toString(args[i]));
           if (i < args.length - 1) {
             System.out.print(", ");
           }
@@ -1550,13 +1616,47 @@ public class TamarinGrader {
       System.out.print(")");
   }
 
- /**
+  /**
+   * Returns a printable version of the given object.
+   * If obj is null, return "null".
+   * If obj is an array, its contents are expanded in []s, even if it is
+   * an array of primitives.
+   * If any arg is a String, respects this.escapeStrings.
+   */
+  protected String toString(Object obj) {
+    //process any arrays
+    if (obj == null) {
+      return "null";
+    }else if (this.escapeStrings && obj instanceof String) {
+      return this.escapeString((String) obj);
+    }else if (obj.getClass().isArray()) {
+      Object[] arrCopy;
+      if (obj instanceof Object[]) {
+        arrCopy = (Object[]) obj;
+      }else {
+        //need to convert any primitive array value to something we can print
+        arrCopy = new Object[Array.getLength(obj)];
+        for (int j = 0; j < arrCopy.length; j++){
+          arrCopy[j] = Array.get(obj, j);  //get autoboxed primitives
+        }
+      }
+      return java.util.Arrays.toString(arrCopy);
+    }else if (this.escapeStrings && obj instanceof String) {
+      return this.escapeString((String) obj);
+    }else {
+      return obj.toString();
+    }
+  }
+
+
+  /**
    * If desc is not null, simply prints that.  Otherwise, prints the
    * default message of "Invoking methodName(args)", where methodName
    * and the details of args are given.
    *
    * If expected is not void.class, will then print the expected value
-   * in [brackets].
+   * in [brackets].  If expected is a String, will respect
+   * this.escapeStrings.
    *
    * Ends the line with a ": ", but does not terminate it with a newline.
    */
@@ -1574,7 +1674,7 @@ public class TamarinGrader {
 
     //print expected value (if expected not void)
     if (expected == null || !expected.equals(void.class)) {
-      System.out.print(" [" + expected + "]");
+      System.out.print(" [" + this.toString(expected) + "]");
     }
 
     //done with summary of test
@@ -2090,11 +2190,15 @@ public class TamarinGrader {
         //SecurityManager's getClassContext hides references to
         //java.lang.reflect.Method.invoke(), etc.  So going the long way...
         StackTraceElement[] stack = new Throwable().fillInStackTrace().getStackTrace();
-        if (stack.length > 12 &&
-             (stack[11].getClassName().equals("sun.reflect.NativeMethodAccessorImpl") ||
-             stack[11].getClassName().equals("sun.reflect.NativeConstructorAccessorImpl") ||
-             stack[12].getClassName().equals("sun.reflect.NativeMethodAccessorImpl") ||
-             stack[12].getClassName().equals("sun.reflect.NativeConstructorAccessorImpl"))) {
+        boolean fromJVM = false;
+        for (StackTraceElement frame : stack) {
+          if (frame.getClassName().equals("sun.reflect.NativeMethodAccessorImpl") ||
+              frame.getClassName().equals("sun.reflect.NativeConstructorAccessorImpl")) {
+            fromJVM = true;
+            break;
+          }
+        }
+        if (fromJVM) {
           //Each single method or constructor can only be invoked through
           //reflection a number of times equals to
           //sun.reflect.ReflectionFactory.inflationThreshold (currently 15)
@@ -2105,11 +2209,13 @@ public class TamarinGrader {
           //Therefore, we have to allow this.  This currently assumes that if
           //this call came from NativeMethodAccessorImpl.invoke() (where the
           //choice is made whether or not to reload the class), we're probably
-          //safe.  Note that if this implementation changes, so that the call
-          //is not index 11 of the runtime stack, this test will fail.
+          //safe.
 
-          //Update: Recently started being one step further down at index 12.
-          //Due to different java version?
+          //Update: Originally (Java 5), checked that call from
+          //sun.reflect.NativeMethodAccessorImpl was at index 11 of the runtime
+          //stack.  But this changed to index 12 with Java 6, and then again with
+          //Java 7.  So now just seeing if somewhere in the stack.  Not quite as
+          //secure, but...
 
           //GRANT: Allow JVM to reload a class on the 16th call to a method.
           return;
@@ -2125,24 +2231,32 @@ public class TamarinGrader {
 
       }else if (perm.equals(new RuntimePermission("accessClassInPackage.sun.reflect"))){
         StackTraceElement[] stack = new Throwable().fillInStackTrace().getStackTrace();
-        if (stack.length > 11 &&
-             (stack[11].getClassName().equals("sun.reflect.NativeMethodAccessorImpl") ||
-             stack[11].getClassName().equals("sun.reflect.NativeConstructorAccessorImpl") ||
-             stack[10].getClassName().equals("sun.reflect.NativeMethodAccessorImpl") ||
-             stack[10].getClassName().equals("sun.reflect.NativeConstructorAccessorImpl"))) {
+        boolean fromJVM = false;
+        for (StackTraceElement frame : stack) {
+          if (frame.getClassName().equals("sun.reflect.NativeMethodAccessorImpl") ||
+              frame.getClassName().equals("sun.reflect.NativeConstructorAccessorImpl")) {
+            fromJVM = true;
+            break;
+          }
+        }
+        if (fromJVM) {
           //GRANT: Ability to look at sun.reflect classes, required for solution
-          //above.
-          //Update: And then changed to be one less: 10, rather than 12.
+          //above.  (Was at indexes 10 and 11.)
           return;
         }
       }else if (perm.equals(new ReflectPermission("suppressAccessChecks"))){
         StackTraceElement[] stack = new Throwable().fillInStackTrace().getStackTrace();
-        if (stack.length > 10) {
-          if (stack[10].getClassName().equals("sun.reflect.NativeMethodAccessorImpl")||
-              stack[10].getClassName().equals("sun.reflect.NativeConstructorAccessorImpl")) {
-            //GRANT: Also required by sun.reflect.
-            return;
+        boolean fromJVM = false;
+        for (StackTraceElement frame : stack) {
+          if (frame.getClassName().equals("sun.reflect.NativeMethodAccessorImpl") ||
+              frame.getClassName().equals("sun.reflect.NativeConstructorAccessorImpl")) {
+            fromJVM = true;
+            break;
           }
+        }
+        if (fromJVM) {
+          //GRANT: Also required by sun.reflect.
+          return;
         }
         for (int i = stack.length - 1; i > 0; i--) {
           if (stack[i].getClassName().equals("java.util.Scanner")) {
@@ -2151,6 +2265,15 @@ public class TamarinGrader {
             return;
           }
         }
+
+      }else if (perm.equals(new java.util.PropertyPermission(
+                  "java.util.Arrays.useLegacyMergeSort", "read"))) {
+        //GRANT: Java 7 changed how java.util.Arrays.sort is implemented.
+        //Apparently, in an somewhat undocumented feature (you can find it if you
+        //search for it), it is possible to request the old version to avoid
+        //exceptions in certain cases due bad Comparators.  In any case, the
+        //new code needs to read from this property.
+        return;
 
       }else if (perm.equals(new java.util.PropertyPermission("user.dir", "read")) ||
                 (perm instanceof java.io.FilePermission &&
