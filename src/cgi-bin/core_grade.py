@@ -22,6 +22,7 @@ import re
 import os
 import shutil
 import subprocess
+import zipfile
 
 # can't import tamarin here due to circular dependency; imported in methods
 #from core_type import TamarinErrror 
@@ -600,6 +601,61 @@ class CopyGrader(Process):
         
         return True
 
+class DisplayFiles(Process):
+    """
+    Displays the contents of the given glob of text files.
+    
+    A text file submission is automatically shown by Tamarin, so this process 
+    is only necessary when you want to show the contents of unzipped files.
+    Will search gradezone for the given list of file globs, displaying each
+    file found using a "preformatted" display format.
+    
+    Adds (as a list) the set of actual filenames (relative to GRADEZONE)
+    to args['DisplayFiles.filenames'] 
+    
+    """
+    # FUTURE: Loop through SUBMISSION_TYPEs to look at file exts to determine
+    # formatting?  Neither looking at type keys or looping through possible
+    # duplicates is entirely satisfactory.
+    #
+    # FUTURE: Flag for recursive file printing.
+    #    
+    def __init__(self, *globs, required=False, displayName="Displaying files"):
+        super().__init__(required, displayName)
+        self.grade = 'OK'
+        self.globs = globs
+        
+    def run(self, args):
+        """ 
+        Adds each glob-matching file name to output.
+        If at least one found, grade is OK (returns True), 
+        else X (returns False: no files displayed).
+        """
+        import tamarin
+        files = set()
+        self.output = ''
+        
+        for g in self.globs:
+            batch = glob.glob(os.path.join(tamarin.GRADEZONE_ROOT, g))
+            for file in batch:
+                self.output += '<div class="file">\n'
+                fn = file.replace(tamarin.GRADEZONE_ROOT, '.')
+                files.add(fn)
+                self.output += '<h4>' + fn + '</h4>\n'
+                with open(file, 'r') as filein:
+                    content = filein.read()
+                    content = html.escape(content, quote=False)
+                    self.output += '<pre>' + content + '</pre>\n</div>\n'
+        
+        # record results
+        args['DisplayFiles.filenames'] = list(files)
+        self.logger.debug("Displayed " + str(len(files)) + " files from " + 
+                          str(self.globs))
+        if len(files) == 0:
+            self.grade = 'X'
+            self.output = None
+        return len(files) > 0
+        
 
 class JavaCompiler(Process):
     """ 
@@ -607,13 +663,15 @@ class JavaCompiler(Process):
     """
     
     def __init__(self, javacPath, required=True, displayName="Compiled",
-                 grade='OK'):
+                 grade='OK', all=False):
         """
-        Requires the path to the javac compiler.
+        Requires the path to the javac compiler.  If all is True, compiles
+        all .java files currently in gradezone (top level only).
         """
         super().__init__(required, displayName)
         self.javac = javacPath
         self.grade = grade
+        self.all = all
     
     def run(self, args):
         """
@@ -630,29 +688,47 @@ class JavaCompiler(Process):
         # And maybe support packages someday?
         import tamarin
         from core_type import TamarinError
-        cmd = (self.javac, args['GradeFile.filename'])
+        if self.all:
+            cmd = self.javac + ' ' + '*.java'
+        else:
+            cmd = self.javac + ' ' + args['GradeFile.filename']
         try:
             compiler = subprocess.Popen(cmd,
                                         stdout=subprocess.PIPE, 
                                         stderr=subprocess.STDOUT,
                                         cwd=tamarin.GRADEZONE_ROOT,
-                                        universal_newlines=True)
+                                        universal_newlines=True,
+                                        shell=True) # to expand *.java on linux
             #only need stdout of (stdout, stderr)
             self.output = compiler.communicate()[0]  # may just be warnings
         except:
             self.logger.exception("Couldn't spawn javac process")
             raise TamarinError('GRADER_ERROR', self.name)
 
-        compiled = args['GradeFile.filename'].replace('.java', '.class')
-        if os.path.exists(os.path.join(tamarin.GRADEZONE_ROOT, compiled)):
-            self.logger.debug("Compiled %s", args['GradeFile.filename'])
+        if self.all:
+            javas = glob.glob(os.path.join(tamarin.GRADEZONE_ROOT, '*.java'))
             args['JavaCompiler.compiled'] = True
-            return True
+            for file in javas:
+                # XXX: Breaks if have a different non-public class in .java
+                if not os.path.exists(file.replace('.java', '.class')):
+                    args['JavaCompiler.compiled'] = False
+                    self.grade = 'X' if isinstance(self.grade, str) else 0 
+                    self.logger.debug("%s did not compile", 
+                                      os.path.basename(file))
+                    return False
+            return True        
         else:
-            self.grade = 'X' if isinstance(self.grade, str) else 0 
-            self.logger.debug("%s did not compile", args['GradeFile.filename'])
-            args['JavaCompiler.compiled'] = False
-        return args['JavaCompiler.compiled']
+            compiled = args['GradeFile.filename'].replace('.java', '.class')
+            if os.path.exists(os.path.join(tamarin.GRADEZONE_ROOT, compiled)):
+                self.logger.debug("Compiled %s", args['GradeFile.filename'])
+                args['JavaCompiler.compiled'] = True
+                return True
+
+        # did not compile    
+        self.grade = 'X' if isinstance(self.grade, str) else 0 
+        self.logger.debug("%s did not compile", args['GradeFile.filename'])
+        args['JavaCompiler.compiled'] = False
+        return False
 
 
 class JavaGrader(Process):
@@ -716,3 +792,121 @@ class JavaGrader(Process):
             self.output += str(stderr) + '\n'
             self.grade = 'ERR'
             return False
+
+class Unzip(Process):
+    """
+    Unzips the file specified by args['GradeFile.path'] in the gradezone.
+    """
+    
+    def __init__(self, required=False, displayName="Unzipping files"):
+        super().__init__(required, displayName)
+        self.grade = 'OK'
+        
+    def run(self, args):
+        """
+        Unzips the file. Is careful to prevent any absolute paths or symlinks 
+        that would allow for  extraction of files to outside the gradezone.  
+        If any of such files exist, they are reported to stdout and simply 
+        skipped.  If any files are skipped or if no files are unzipped, will
+        return False as per a failure.  However, this process is not required
+        by default, so grading will likely try to continue.
+    
+        Prints a list of all unzipped and skipped files. Also stores that list 
+        of extracted files into args['Unzip.extracted'].
+        """
+        import tamarin
+        zf = zipfile.ZipFile(args['GradeFile.path'], 'r')
+        if not zf.namelist():
+            self.output = '[No files found in zipped archive.]\n'
+            self.grade = 'X'
+        else:
+            self.output = ''
+        safe = self.validMembers(zf.namelist())
+        try:
+            zf.extractall(path=tamarin.GRADEZONE_ROOT, members=safe)
+            args['Unzip.extracted'] = safe
+            self.logger.debug('Unzipped ' + str(len(safe)) + ' of ' +
+                                        str(len(zf.namelist())) + ' files')
+        except IOError as e:
+            self.output += ('...\nABORTING: Could not correctly extract '
+                            'one of the files.\n')
+            self.output += ('This is probably due to the zipped file '
+                'being corrupted or containing a symlink.\n')
+            self.logger.warn('Unzip ' + args['GradeFile.filename'] + ' aborted'
+                             ' with: ' + str(e))
+            self.logger.debug('If GRADZONE permissions are correct, error is '
+                              'likely due to a symlink/error in zip file.')
+            self.grade = 'X'
+            return False
+        finally:
+            zf.close()
+        # problem/False if no files or if we skipped on
+        if len(safe) == 0 or len(safe) != len(zf.namelist()):
+            self.grade = 'X'
+            return False
+        else:
+            return True
+        
+
+    def validMembers(self, members):
+        # thanks in part to: http://stackoverflow.com/questions/10060069/
+        safe = []
+        base = os.path.realpath(os.path.abspath('.'))
+        for m in members:
+            self.output += m
+            extracting = os.path.join(base, m)
+            extracting = os.path.realpath(os.path.abspath(extracting))
+            if not extracting.startswith(base):
+                #would extract to other dir
+                self.output += ' [SKIPPED: Would extract to outside of ' +\
+                    'gradezone.]\n'
+            else:
+                self.output += '\n'
+                safe.append(m)
+        return safe
+
+
+class VerifyMainFile(Process):
+    """
+    Verifies--usually after an Unzip--that a given main file exists in the
+    gradezone.  If it does exit, replaces args['GradeFile.filename'] with the
+    new name.  Note that this leaves all other GradeFile arguments untouched!
+    
+    The nameTemplate can include any '{$Something.other}', for which replacment
+    values will be pulled from args when run.  Most commonly useful will 
+    probably be ${GradeFile.user}, etc.  (A special version of string.Template 
+    is used to include dots in the identifiers, excluding the first character.)
+    
+    """
+    
+    def __init__(self, nameTemplate, required=True, 
+                 displayName="Verifying main file"):
+        super().__init__(required, displayName)
+        self.grade = 'OK'
+        self.name = nameTemplate
+        
+    def run(self, args): 
+        import tamarin
+        import string
+        
+        class Temp(string.Template):
+            idpattern = '[_a-z][_a-z0-9.]*'
+        template = Temp(self.name)
+        
+        try:
+            mainfile = template.substitute(args)
+        except KeyError as e:
+            self.logger.error("While producing template: %s", e)
+            raise
+        
+        if os.path.exists(os.path.join(tamarin.GRADEZONE_ROOT, mainfile)):
+            self.logger.info("Found %s", mainfile)
+            args['GradeFile.filename'] = mainfile
+            self.grade = 'OK'
+            return True
+        else:
+            self.logger.warn("Did not find %s", mainfile)
+            self.output = "Did not find required main file: " + mainfile 
+            self.grade = 'X'
+            return False
+        
