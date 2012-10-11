@@ -44,7 +44,7 @@ public class TamarinGrader {
       assumed from the name of the submitted .java filename */
   public String className;
   /** This submission's main class (if the file was compiled) */
-  public Class _class;
+  public Class<?> _class;
   /** The grade this submission current has (added to by each test) */
   public double grade;
 
@@ -100,9 +100,9 @@ public class TamarinGrader {
    * the graded assignment to finish.  This prevents infinite loops by killing
    * the invoked method if it takes too long to finish.  However, if set too
    * low this may incorrectly kill time-intensive processes early, especially
-   * on a slow grading machine.  (Default: 20000 ms)
+   * on a slow grading machine.  (Default: 5000 ms)
    */
-  public int timeout = 20000;
+  public int timeout = 5000;
 
   /**
    * When killing a hung method, the grader gives the interrupted thread this
@@ -218,7 +218,7 @@ public class TamarinGrader {
    * may not be reloaded.  And, again, the reloaded class itself must be
    * public to access any of its members after the reload.)
    */
-  protected Class reloadClass = null;
+  protected Class<?> reloadClass = null;
 
   /**
    * Whether to treat an attempt to end a program using System.exit (or similar
@@ -565,14 +565,17 @@ public class TamarinGrader {
 
   /**
    * Returns all the lines of output in a Lines object for easy filtering
-   * based on regex pattern matching.  If no output, returned Lines is emtpy.
+   * based on regex pattern matching.  If no output, returned Lines is empty.
+   * Lines includes any blank (empty) lines.  The newline is treated as a
+   * line-separator (not terminator), so if the output ends in a newline,
+   * the returned Lines will contain an extra empty line.
    */
   public Lines getOutputLines() {
     //nothing to search through
     if (!this.hasOutput()) {
       return new Lines(new String[0]);
     }else {
-      return new Lines(this.out.split("[\\n\\r]+"));
+      return new Lines(this.out.split("\\r?\\n", -1));  //get all matches
     }
   }
 
@@ -880,6 +883,22 @@ public class TamarinGrader {
     }
   }
 
+  /**
+   * Prints the contents of the given file to System.out.
+   * If the file does not exist or cannot be read, prints an
+   * error message instead.
+   */
+  public void printFile(String filename) {
+    try {
+      Scanner filein = new Scanner(new File(filename));
+      while (filein.hasNextLine()) {
+        System.out.println(filein.nextLine());
+      }
+      filein.close();
+    }catch (IOException e) {
+      System.out.println("[Could not print file: " + e.getMessage() + "]");
+    }
+  }
 
   /**
    * Prints this grader's grade to both stdout (with this.println)
@@ -1004,219 +1023,8 @@ public class TamarinGrader {
 
 //===== PUBLIC methods: RUNNING and TESTING methods =====
 
-  /**
-   * Runs the main method of {@link #_class} with the given arguments
-   * (which can be empty/none).  Then calls {@link #printOutput()} to
-   * display any printed output.
-   * <p>
-   * Before running main, this method will reload the given class (if it
-   * compiled).  This forces a reset of all static variables (such as buffered
-   * stream readers, etc) and more closely models the normal execution of main
-   * as a fresh process.
-   * <p>
-   * To run main without reloading or to run it without printing output, try:
-   * <pre>
-   *   this.runMethod(this._class, "main", (Object) args);
-   * </pre>
-   * <p>
-   * Returns false if the class cannot be reloaded; otherwise returns whether
-   * main completed without exceptions.
-   */
-  public boolean runMain(String... args) {
-    Class reloadSetting = this.reloadClass;
-    this.reloadClass = this._class;
-    boolean result = this.testMethod(null, void.class, this._class, "main", (Object) args);
-    this.reloadClass = reloadSetting;
-    this.printOutput();
-    return result;
-  }
-
-
-  /**
-   * As {@link #invokeMethod}, but does not throw an exception.
-   * Instead, invokes <code>inst.methodName(args)</code> and returns the result
-   * produced by the method.
-   * If the method cannot be successfully invoked (such as when
-   * <code>inst</code> is <code>null</code> or if the method throws an
-   * exception) or if the invoked method has a void return type, returns
-   * <code>void.class</code> instead.
-   * <p>
-   * This method runs silently (does not print to output), even if an exception
-   * is produced.
-   */
-  public Object runMethod(Object inst, String methodName, Object... args) {
-    try {
-      return this.invokeMethod(inst, methodName, args);
-    }catch (InvocationException ie) {
-      return void.class;
-    }
-  }
-
-  /**
-   * == <code>this.testMethod(null, expected, inst, methodName, args)</code>.
-   * That is, runs as <code>testMethod</code> using the default test description.
-   */
-  public boolean testMethod(Object expected, Object inst, String methodName, Object... args) {
-    return this.testMethod(null, expected, inst, methodName, args);
-  }
-
-  /**
-   * Calls <code>testMethod</code> with the default test description, followed
-   * but a call to result with no description to update the grade based on the
-   * results of testMethod.
-   *
-   * value is the point-value worth of this test. The remainder of the
-   * arguments are for as testMethod.  Produces 2 lines of output.
-   *
-   * Like the result methods, returns whether the points earned by this test:
-   * value if the test passed or 0 if it failed.
-   */
-  public double gradeMethod(double value, Object expected,
-                             Object inst, String methodName, Object... args) {
-    //XXX: would be nice to have this on one line, but major overhaul required!
-    //Also, many test description + results would exceed 80 chars anyway.
-    boolean ok = this.testMethod(null, expected, inst, methodName, args);
-    return this.result(ok, "", value);
-  }
-
-
-  /**
-   * Simply invokes the given method safely.
-   * Does not print any output.
-   * Returns the object returned by the method (which may be null).
-   * <p>
-   * If the method cannot be invoked, will throw a
-   * TamarinGrader.InvocationException containing the expection generated.
-   * This will also happen if the given <code>inst</code> is null.
-   */
-  public Object invokeMethod(Object inst, String methodName, Object... args)
-                            throws TamarinGrader.InvocationException {
-    try {
-      if (inst == null) {
-        throw new TamarinGrader.InvocationException(
-                "Could not invoke method on null object.",
-                new NullPointerException());
-      }
-      Class targetClass = (inst instanceof Class) ? (Class) inst : inst.getClass();
-      Class[] params = this.getParameters(args);
-      Method method = this.getMethod(targetClass, methodName, params);
-      return this.invokeMember(inst, method, args);
-
-    }catch (Exception e) {  //from not finding it
-      throw new TamarinGrader.InvocationException(e);
-    }
-  }
-
-
-//XXX: What if constructor is expected to return an exception?
-//     Make a testConstructor method for this:
-//     testConstructor(String desc, Class expected, Class toConstr, args)
-
-  /**
-   * Constructs and returns an instance of the class <code>toConstruct</code>.
-   * <p>
-   * First displays the given description of the test.
-   * If desc.equals(""), nothing is printed at all by this test
-   * (even if there is an error).
-   * If desc is null, will instead
-   * provide the default of "Constructing toConstruct(args)", where toConstruct and
-   * args are expanded to their actual values.
-   * <p>
-   * Next, the constructor is invoked, if possible.
-   * If this.compiled == false, this step is skipped.
-   * The type of parameteres for the constructor
-   * is produced by polling the class types of the args objects.  If any of these
-   * are wrapper classes (Integer, Character, etc.), it will first try invoking
-   * the constructor with the equivalent primitive type aguments.
-   * (The grader will not tolerate a method with a mix of primitive parameters
-   * and wrapper class parameters though--it needs to be all primitives or all
-   * wrappers.)
-   * <p>
-   * Construction is done safely.  The constructor is invoked in a separate thread,
-   * which is terminated if it fails to complete by TamarinGrader.TIMEOUT.  (This
-   * prevents hangs from infinite loops or unexpected reads from stdin.)
-   * If the constructor does not exist, or throws some unexpected exception, these
-   * will be caught.  In all these cases, a brief "[ERROR: ...]" explanation will
-   * appended to the earlier output.
-   * <p>
-   * Returns the constructed object, or null if the object could not be constructed
-   * due to one of a number possible errors.
-   *
-   * @param desc     The description of this test; null will use the default prompt;
-   *                  "" will silence all output from this test.
-   * @param toConstruct  The name of the class to construct an instance of.
-   * @param args     The arguments to pass to the tested constructor.  Additionally,
-   *                 the type of the args are used to determine the parameter list for
-   *                 the constructor.
-   * @return         The constructed instance, or null.
-   */
-  public Object construct(String desc, String toConstruct, Object... args) {
-
-    boolean silent = (desc != null && desc.equals("")) ? true : false;
-
-    //print a description of this test
-    if (!silent) {
-      if (desc == null) {
-        //default description
-        this.print("Constructing " + toConstruct);
-        this.printArgs(args);
-      }else {
-        this.print(desc);
-      }
-    }
-
-    //should we even bother continuing?
-    if (!this.compiled) {
-      if (!silent) {
-        System.out.println(": [ERROR: Not compiled]");
-      }
-      return null;
-    }
-
-    //now try finding and invoking the constructor
-    try {
-      //get paramater list
-      Class[] params = this.getParameters(args);
-      Class classToConstruct = Class.forName(toConstruct);
-      Constructor constr = this.getConstructor(classToConstruct, params);
-      Object instance = this.invokeMember(null, constr, args);
-
-      //there was no expected result to display; but still need to end line
-      if (!silent) {
-        System.out.println(".");
-      }
-      return instance;
-
-    }catch (NoSuchMethodException nsme) {  //from not finding it
-      if (!silent) System.out.println(": [ERROR: No such constructor]");
-    }catch (ClassNotFoundException cnfe) {  //from not finding it
-      if (!silent) System.out.println(": [ERROR: No such class]");
-    }catch (NoClassDefFoundError ncdfe) {  //from not finding it (usually wrong case)
-      if (!silent) System.out.println(": [ERROR: No such class (wrong case/name?)]");
-    }catch (TamarinGrader.InvocationException ie) {  //couldn't invoke
-      if (!silent) {
-        System.out.print(": [ERROR: " + ie.getMessage());
-        if (ie.getCause() != null) {
-          System.out.print(": " + ie.getCause());
-        }
-        System.out.println("]");
-      }
-    }catch (InvocationTargetException ite) {
-      if (!silent) System.out.println(": [ERROR: Constructor threw " + ite.getCause() + "]");
-    }
-    return null;
-  }
-
-  /**
-   * <code>== this.construct(null, this._class, args)</code>
-   * That is, constructs an instance of the class being graded by this grader
-   * with the default description and the given args.
-   */
-  public Object construct(Object... args) {
-    return this.construct(null, this.className, args);
-  }
-
-
+//TODO:  Overhaul test methods
+//[notes omitted here]
 
   /**
    * Tests the given method (if compiled).
@@ -1304,7 +1112,7 @@ public class TamarinGrader {
     boolean silent = (desc != null && desc.equals("")) ? true : false;
 
     //get paramater list
-    Class[] params = this.getParameters(args);
+    Class<?>[] params = this.getParameters(args);
     //print a description of this test
     if (!silent) {
       this.printTestDescription(desc, expected, methodName, args);
@@ -1318,14 +1126,14 @@ public class TamarinGrader {
       return false;
     }else if (inst == null) {
       if (!silent) {
-        System.out.println("[ERROR: Method could not be invoked on null object)]");
+        System.out.println("[ERROR: Method could not be invoked on null object]");
       }
       return false;
     }
 
     //now try finding and invoking the method
     try {
-      Class targetClass = (inst instanceof Class) ? (Class) inst : inst.getClass();
+      Class<?> targetClass = (inst instanceof Class) ? (Class<?>) inst : inst.getClass();
       Method method = this.getMethod(targetClass, methodName, params);
       Object result = this.invokeMember(inst, method, args);
 
@@ -1423,6 +1231,233 @@ public class TamarinGrader {
     return success;
   }
 
+  /**
+   * Runs the main method of {@link #_class} with the given arguments
+   * (which can be empty/none).  Then calls {@link #printOutput()} to
+   * display any printed output.
+   * <p>
+   * Before running main, this method will reload the given class (if it
+   * compiled).  This forces a reset of all static variables (such as buffered
+   * stream readers, etc) and more closely models the normal execution of main
+   * as a fresh process.
+   * <p>
+   * To run main without reloading or to run it without printing output, try:
+   * <pre>
+   *   this.runMethod(this._class, "main", (Object) args);
+   * </pre>
+   * <p>
+   * Returns false if the class cannot be reloaded; otherwise returns whether
+   * main completed without exceptions.
+   */
+  public boolean runMain(String... args) {
+    Class<?> reloadSetting = this.reloadClass;
+    this.reloadClass = this._class;
+    boolean result = this.testMethod(null, void.class, this._class, "main", (Object) args);
+    this.reloadClass = reloadSetting;
+    this.printOutput();
+    return result;
+  }
+
+
+  /**
+   * As {@link #invokeMethod}, but does not throw an exception.
+   * Instead, invokes <code>inst.methodName(args)</code> and returns the result
+   * produced by the method.
+   * If the method cannot be successfully invoked (such as when
+   * <code>inst</code> is <code>null</code> or if the method throws an
+   * exception) or if the invoked method has a void return type, returns
+   * <code>void.class</code> instead.
+   * <p>
+   * This method runs silently (does not print to output), even if an exception
+   * is produced.
+   */
+  public Object runMethod(Object inst, String methodName, Object... args) {
+    try {
+      return this.invokeMethod(inst, methodName, args);
+    }catch (InvocationException ie) {
+      return void.class;
+    }
+  }
+
+  /**
+   * == <code>this.testMethod(null, expected, inst, methodName, args)</code>.
+   * That is, runs as <code>testMethod</code> using the default test description.
+   */
+  public boolean testMethod(Object expected, Object inst, String methodName, Object... args) {
+    return this.testMethod(null, expected, inst, methodName, args);
+  }
+
+  /**
+   * Calls <code>testMethod</code> with the default test description, followed
+   * but a call to result with no description to update the grade based on the
+   * results of testMethod.
+   *
+   * value is the point-value worth of this test. The remainder of the
+   * arguments are for as testMethod.  Produces 2 lines of output.
+   *
+   * Like the result methods, returns whether the points earned by this test:
+   * value if the test passed or 0 if it failed.
+   */
+  public double gradeMethod(double value, Object expected,
+                             Object inst, String methodName, Object... args) {
+    //Would be nice to have this on one line, but major overhaul required!
+    //Also, many test description + results would exceed 80 chars anyway.
+    boolean ok = this.testMethod(null, expected, inst, methodName, args);
+    return this.result(ok, "", value);
+  }
+
+
+  /**
+   * Simply invokes the given method safely.
+   * Does not print any output.
+   * Returns the object returned by the method (which may be null).
+   * <p>
+   * If the method cannot be invoked, will throw a
+   * TamarinGrader.InvocationException containing the expection generated.
+   * This will also happen if the given <code>inst</code> is null.
+   */
+  public Object invokeMethod(Object inst, String methodName, Object... args)
+                            throws TamarinGrader.InvocationException {
+    try {
+      if (inst == null) {
+        throw new TamarinGrader.InvocationException(
+                "Could not invoke method on null object.",
+                new NullPointerException());
+      }
+      Class<?> targetClass = (inst instanceof Class) ? (Class<?>) inst : inst.getClass();
+      Class<?>[] params = this.getParameters(args);
+      Method method = this.getMethod(targetClass, methodName, params);
+      return this.invokeMember(inst, method, args);
+
+    }catch (Exception e) {  //from not finding it
+      throw new TamarinGrader.InvocationException(e);
+    }
+  }
+
+
+//XXX: What if constructor is expected to return an exception?
+//     Make a testConstructor method for this:
+//     testConstructor(String desc, Class expected, Class toConstr, args)
+
+  /**
+   * Constructs and returns an instance of the class <code>toConstruct</code>.
+   * <p>
+   * First displays the given description of the test.
+   * If desc.equals(""), nothing is printed at all by this test
+   * (even if there is an error).
+   * If desc is null, will instead
+   * provide the default of "Constructing toConstruct(args)", where toConstruct and
+   * args are expanded to their actual values.
+   * <p>
+   * Next, the constructor is invoked, if possible.
+   * If this.compiled == false, this step is skipped.
+   * The type of parameteres for the constructor
+   * is produced by polling the class types of the args objects.  If any of these
+   * are wrapper classes (Integer, Character, etc.), it will first try invoking
+   * the constructor with the equivalent primitive type aguments.
+   * (The grader will not tolerate a method with a mix of primitive parameters
+   * and wrapper class parameters though--it needs to be all primitives or all
+   * wrappers.)
+   * <p>
+   * Construction is done safely.  The constructor is invoked in a separate thread,
+   * which is terminated if it fails to complete by TamarinGrader.TIMEOUT.  (This
+   * prevents hangs from infinite loops or unexpected reads from stdin.)
+   * If the constructor does not exist, or throws some unexpected exception, these
+   * will be caught.  In all these cases, a brief "[ERROR: ...]" explanation will
+   * appended to the earlier output.
+   * <p>
+   * Returns the constructed object, or null if the object could not be constructed
+   * due to one of a number possible errors.
+   *
+   * @param desc     The description of this test; null will use the default prompt;
+   *                  "" will silence all output from this test.
+   * @param toConstruct  The name of the class to construct an instance of.
+   * @param args     The arguments to pass to the tested constructor.  Additionally,
+   *                 the type of the args are used to determine the parameter list for
+   *                 the constructor.
+   * @return         The constructed instance, or null.
+   */
+  public Object construct(String desc, String toConstruct, Object... args) {
+    try {
+      return this.constructor(desc, toConstruct, args);
+    }catch (InvocationTargetException e) {
+      return null;
+    }
+  }
+
+  /** As construct, but will let exception through (after printing it)
+   * if constructor throws one. */
+  protected Object constructor(String desc, String toConstruct, Object... args)
+      throws InvocationTargetException{
+
+    boolean silent = (desc != null && desc.equals("")) ? true : false;
+
+    //print a description of this test
+    if (!silent) {
+      if (desc == null) {
+        //default description
+        this.print("Constructing " + toConstruct);
+        this.printArgs(args);
+      }else {
+        this.print(desc);
+      }
+    }
+
+    //should we even bother continuing?
+    if (!this.compiled) {
+      if (!silent) {
+        System.out.println(": [ERROR: Not compiled]");
+      }
+      return null;
+    }
+
+    //now try finding and invoking the constructor
+    try {
+      //get paramater list
+      Class<?>[] params = this.getParameters(args);
+      Class<?> classToConstruct = Class.forName(toConstruct);
+      Constructor<?> constr = this.getConstructor(classToConstruct, params);
+      Object instance = this.invokeMember(null, constr, args);
+
+      //there was no expected result to display; but still need to end line
+      if (!silent) {
+        System.out.println(".");
+      }
+      return instance;
+
+    }catch (NoSuchMethodException nsme) {  //from not finding it
+      if (!silent) System.out.println(": [ERROR: No such constructor]");
+    }catch (ClassNotFoundException cnfe) {  //from not finding it
+      if (!silent) System.out.println(": [ERROR: No such class]");
+    }catch (NoClassDefFoundError ncdfe) {  //from not finding it (usually wrong case)
+      if (!silent) System.out.println(": [ERROR: No such class (wrong case/name?)]");
+    }catch (TamarinGrader.InvocationException ie) {  //couldn't invoke
+      if (!silent) {
+        System.out.print(": [ERROR: " + ie.getMessage());
+        if (ie.getCause() != null) {
+          System.out.print(": " + ie.getCause());
+          if (this.stackTraceOn) {
+            ie.getCause().printStackTrace();
+          }
+        }
+        System.out.println("]");
+      }
+    }catch (InvocationTargetException e) {
+      if (!silent) System.out.println(": [ERROR: Constructor threw " + e.getCause() + "]");
+      throw e;
+    }
+    return null;
+  }
+
+  /**
+   * <code>== this.construct(null, this._class, args)</code>
+   * That is, constructs an instance of the class being graded by this grader
+   * with the default description and the given args.
+   */
+  public Object construct(Object... args) {
+    return this.construct(null, this.className, args);
+  }
+
 
 //===== PROTECTED HELPER METHODS =====
 
@@ -1461,10 +1496,10 @@ public class TamarinGrader {
    *           found in targetClass.
    * @throws  NoSuchMethodException  if such a method cannot be found in targetClass
    */
-  protected Constructor getConstructor(Class<?> targetClass, Class[] params)
+  protected Constructor<?> getConstructor(Class<?> targetClass, Class<?>[] params)
                                   throws NoSuchMethodException {
 
-    Class[] primitiveParams = this.getPrimitiveParameters(params);
+    Class<?>[] primitiveParams = this.getPrimitiveParameters(params);
     //now, try to find and return the constructor
 
     try {
@@ -1509,10 +1544,10 @@ public class TamarinGrader {
    *           found in targetClass.
    * @throws  NoSuchMethodException  if such a method cannot be found in targetClass
    */
-  protected Method getMethod(Class targetClass, String methodName, Class[] params)
+  protected Method getMethod(Class<?> targetClass, String methodName, Class<?>[] params)
                              throws NoSuchMethodException {
 
-    Class[] primitiveParams = this.getPrimitiveParameters(params);
+    Class<?>[] primitiveParams = this.getPrimitiveParameters(params);
     //now, try to find and return the method
     try {
       return this.getSpecificMethod(targetClass, methodName, primitiveParams);
@@ -1528,7 +1563,8 @@ public class TamarinGrader {
    * class with primitives in the parameter list.  Will try declared methods
    * first, and, if that fails, public methods (which include inherited).
    */
-  protected Method getSpecificMethod(Class<?> targetClass, String methodName, Class[] params)
+  protected Method getSpecificMethod(Class<?> targetClass,
+                                     String methodName, Class<?>[] params)
                             throws NoSuchMethodException {
     if (methodName == null) {
       //short-circuit the NPE that will result below
@@ -1552,8 +1588,8 @@ public class TamarinGrader {
    * If any of the arguments in args == null, then the corresponding
    * paramter will also == null.
    */
-  protected Class[] getParameters(Object[] args) {
-    Class[] params = null;
+  protected Class<?>[] getParameters(Object[] args) {
+    Class<?>[] params = null;
     if (args != null) {
       params = new Class[args.length];
       for (int i = 0; i < args.length; i++) {
@@ -1572,17 +1608,18 @@ public class TamarinGrader {
    * Returns a copy of params with the changes made.
    * If params is null, so will the returned array be.
    */
-  protected Class[] getPrimitiveParameters(Class[] params) {
-    Class[] primitiveParams;
+  protected Class<?>[] getPrimitiveParameters(Class<?>[] params) {
+    Class<?>[] primitiveParams;
     if (params == null) {
       primitiveParams = null;
     }else {
       primitiveParams = new Class[params.length];
       //define a wrapper-to-primitive mapping
-      Class[][] map = {{Byte.class, byte.class}, {Short.class, short.class},
-                       {Integer.class, int.class}, {Long.class, long.class},
-                       {Float.class, float.class}, {Double.class, double.class},
-                       {Character.class, char.class}, {Boolean.class, boolean.class}};
+      Class<?>[][] map = {{Byte.class, byte.class}, {Short.class, short.class},
+                          {Integer.class, int.class}, {Long.class, long.class},
+                          {Float.class, float.class}, {Double.class, double.class},
+                          {Character.class, char.class},
+                          {Boolean.class, boolean.class}};
       //loop over params, copying and converting any wrappers
       for (int i = 0; i < params.length; i++) {
         primitiveParams[i] = params[i];
@@ -1707,8 +1744,8 @@ public class TamarinGrader {
    * If this.{@link #reloadClass} is set, will reload the
    * given class using a custom ClassLoader before invoking the member.
    * <p>
-   * Returns whatever the invoked method returned, or the constructed
-   * object for constructors.
+   * Returns whatever the invoked method returned (or void.class in the case
+   * of void return type methods), or the constructed object for constructors.
    */
   @SuppressWarnings("deprecation") //for stop method
   protected Object invokeMember(Object inst, Member member, Object[] args)
@@ -1720,7 +1757,7 @@ public class TamarinGrader {
 
       //some basic error checking
       Method method = null;
-      Constructor constructor = null;
+      Constructor<?> constructor = null;
       if (member instanceof Method) {
         method = (Method) member;
         if (!Modifier.isStatic(method.getModifiers()) && inst instanceof Class) {
@@ -1729,7 +1766,7 @@ public class TamarinGrader {
           throw new InvocationException("Method should be static, but it is not.");
         }
       }else if (member instanceof Constructor) {
-        constructor = (Constructor) member;
+        constructor = (Constructor<?>) member;
       }else {
         //neither method or constructor
         throw new InvocationException("Trying to invoke a member that is " +
@@ -1801,7 +1838,12 @@ public class TamarinGrader {
         }
       }else {
         //method finished okay
-        return t.result;
+        if (t.result == null && member instanceof Method &&
+           ((Method) member).getReturnType().equals(void.class)) {
+          return void.class;
+        }else {
+          return t.result;
+        }
       }
 
     }catch (InterruptedException ie) {
@@ -1911,7 +1953,7 @@ public class TamarinGrader {
     protected Method method = null;
     protected Object instance = null;
     protected Object[] args = null;
-    protected Constructor constructor = null;
+    protected Constructor<?> constructor = null;
 
     /**
      * Invoke the given method on the given instance (which can be null
@@ -1922,7 +1964,7 @@ public class TamarinGrader {
       if (member instanceof Method) {
         this.method = (Method) member;
       }else if (member instanceof Constructor) {
-        this.constructor = (Constructor) member;
+        this.constructor = (Constructor<?>) member;
       }else {
         throw new ClassCastException("Specified member is not a method " +
                                       "or constructor.");
@@ -2350,7 +2392,7 @@ public class TamarinGrader {
      * Does pass all packaged names up to parent classloader though.
      */
     public Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
-      Class loaded = this.findLoadedClass(name);
+      Class<?> loaded = this.findLoadedClass(name);
       if (loaded == null) {
         //not loaded yet
         if (name.contains(".")) {
