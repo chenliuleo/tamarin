@@ -120,12 +120,33 @@ DIV.grader SPAN.success { /* passed status */
   font-size: smaller;
   color: #003300;
 }
+DIV.grader .displayName {
+  font-weight: bold;
+  font-size: smaller;
+}
 DIV.submission DIV.JavaCompiler PRE { /* compiler output */ 
   padding: 0 2em 1em;
 }
 DIV.submission DIV.JavaGrader PRE {  
   padding: 0 2em 1em;
   color: #333333;
+}
+DIV.submission DIV.DisplayFiles DIV.file {
+  margin: 1em 0;
+  border: 1px dotted black;
+}
+DIV.submission DIV.DisplayFiles DIV.file PRE {
+  margin: 1em;
+}
+DIV.submission DIV.DisplayFiles DIV.file H4 {
+  font-family: monospace;
+  margin: 0;
+  margin-bottom: 1em;
+  color: black;
+  background-color: #f0f0f0;
+  padding: 0.1em;
+  padding-left: 0.5em;
+  border-bottom: 1px dotted black;
 }
 
 /* span/markup inserted around lines that start with HIGHLIGHT_PREFIX */

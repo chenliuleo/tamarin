@@ -235,7 +235,7 @@ MAY_RESUBMIT_LATE = True
 MAY_RESUMBIT_AFTER_HUMAN = False
 
 from core_type import SubmissionType
-from core_grade import CopyGrader
+from core_grade import CopyGrader, DisplayFiles, Unzip, VerifyMainFile
 from core_grade import JavaCompiler, JavaGrader
 # The mapping of submission type names to SubmissionType objects.  The name
 # of each assignment directory may specify the submission type for that
@@ -249,6 +249,18 @@ from core_grade import JavaCompiler, JavaGrader
 # processes - (default: [])
 #
 SUBMISSION_TYPES = {
+    'jar':  SubmissionType('jar',
+                encoding=None,
+                processes=[
+                    Unzip(),
+                    DisplayFiles('*.java'),
+                    VerifyMainFile('${GradeFile.name}.java'),
+                    # may need to fill in full paths to javac and java
+                    CopyGrader(),
+                    JavaCompiler(javacPath='javac', all=True, required=False),
+                    CopyGrader(),
+                    JavaGrader(javaPath='java')
+                ]),
     'java': SubmissionType('java', 
                 initialCap=True,
                 processes=[
@@ -335,7 +347,7 @@ HIGHLIGHT_ELEMENTS = ['PASS', 'FAIL', 'PART', 'EXTRA']
 # The date of the last edit of this Tamarin version 
 # (shown in the footers of generated pages)
 # 
-TAMARIN_VERSION = '13 Aug 2012'
+TAMARIN_VERSION = '30 Sep 2012'
 
 # The regex for an assignment name.
 # Formed by a capital letter, a 2-digit number, and an optional 
