@@ -1,0 +1,71 @@
+#summary Tamarin images you can use to customize your Tamarin installation.
+#labels AdminSupport
+
+
+= Images =
+
+You may copy the image files from [http://zach.tomaszewski.name/tamarin/images/ here].  Below are examples, including the required attribution text for each Creative Commons image.  To install, save a copy of the image into your htdocs/ folder.  Then replace the necessary HTML code in your index.html page with the provided code.
+
+<br>
+
+<p>
+<img src="http://zach.tomaszewski.name/tamarin/images/goldenliontamarin.jpg" width="230" height="154" alt="A Golden Lion Tamarin" border="0"><br>
+<span class="imagetitle">A Golden Lion Tamarin</span><br>
+Image from <a href="http://commons.wikimedia.org/wiki/Image:Golden_Lion_Tamarin_Leontopithecus_rosalia.jpg">Wikimedia Commons</a> by <a href="http://www.flickr.com/people/suneko/">su neko</a>,<br>
+resized and still under <a href="http://creativecommons.org/licenses/by/2.0/deed.en">CC-BY license</a>.
+
+{{{
+<!--start image-->
+<a href="http://commons.wikimedia.org/wiki/Image:Golden_Lion_Tamarin_Leontopithecus_rosalia.jpg"><img src="goldenliontamarin.jpg" width="230" height="154" alt="A Golden Lion Tamarin" border="0"></a><br>
+<span class="imagetitle">A Golden Lion Tamarin</span><br>
+<span class="attribution">Image from <a href="http://commons.wikimedia.org/wiki/Image:Golden_Lion_Tamarin_Leontopithecus_rosalia.jpg">Wikimedia Commons</a> by <a href="http://www.flickr.com/people/suneko/">su neko</a>,<br>
+resized and still under <a href="http://creativecommons.org/licenses/by/2.0/deed.en">CC-BY license</a>.</span>
+<!--end image-->
+}}}
+
+<br>
+
+<img src="http://zach.tomaszewski.name/tamarin/images/emperortamarin.jpg" width="230" height="153" alt="An Emperor Tamarin" border="0"><br>
+<span class="imagetitle">An Emperor Tamarin</span><br>
+Image from <a href="http://commons.wikimedia.org/wiki/File:Tamarin_portrait.JPG">Wikimedia Commons</a> by <a href="http://home.comcast.net/~milazinkova/Fogshadow.html">Mila Zinkova</a>,<br>
+resized and still under <a href="http://creativecommons.org/licenses/by-sa/3.0/">CC-BY-SA license</a>.
+{{{
+<!--start image-->
+<a href="http://commons.wikimedia.org/wiki/File:Tamarin_portrait.JPG"><img src="emperortamarin.jpg" width="230" height="153" alt="An Emperor Tamarin" border="0"></a><br>
+<span class="imagetitle">An Emperor Tamarin</span><br>
+<span class="attribution">Image from <a href="http://commons.wikimedia.org/wiki/File:Tamarin_portrait.JPG">Wikimedia Commons</a> by <a href="http://home.comcast.net/~milazinkova/Fogshadow.html">Mila Zinkova</a>,<br>
+resized and still under <a href="http://creativecommons.org/licenses/by-sa/3.0/">CC-BY-SA license</a>.</span>
+<!--end image-->
+}}}
+
+<br>
+
+<img src="http://zach.tomaszewski.name/tamarin/images/cottontoptamarin.jpg" width="230" height="171" alt="A Cottontop Tamarin" border="0"><br>
+<span class="imagetitle">A Cottontop Tamarin</span><br>
+Image from <a href="http://commons.wikimedia.org/wiki/File:Cottontop_Tamarin_13.jpg">Wikimedia Commons</a> by <a href="http://commons.wikimedia.org/wiki/User:Ltshears">Trisha Shears</a>,<br>
+cropped, resized, and still under <a href="http://creativecommons.org/licenses/by-sa/3.0/">CC-BY-SA license</a>.
+
+{{{
+<!--start image-->
+<a href="http://commons.wikimedia.org/wiki/File:Cottontop_Tamarin_13.jpg"><img src="cottontoptamarin.jpg" width="230" height="171" alt="A Cottontop Tamarin" border="0"></a><br>
+<span class="imagetitle">A Cottontop Tamarin</span><br>
+<span class="attribution">Image from <a href="http://commons.wikimedia.org/wiki/File:Cottontop_Tamarin_13.jpg">Wikimedia Commons</a> by <a href="http://commons.wikimedia.org/wiki/User:Ltshears">Trisha Shears</a>,<br>
+cropped, resized, and still under <a href="http://creativecommons.org/licenses/by-sa/3.0/">CC-BY-SA license</a>.</span>
+<!--end image-->
+}}}
+
+<br>
+
+<img src="http://zach.tomaszewski.name/tamarin/images/goldenhandedtamarin.jpg" width="230" height="172" alt="An Golden-handed Tamarin" border="0"><br>
+<span class="imagetitle">A Golden-handed Tamarin</span><br>
+Image from <a href="http://commons.wikimedia.org/wiki/File:Saguinus_midas_flk24863753.jpg">Wikimedia Commons</a> by <a href="http://www.flickr.com/photos/frank-wouters/24863753/">Frank Wouters</a>,<br>
+resized and still under <a href="http://creativecommons.org/licenses/by/2.0/">CC-BY license</a>.
+
+{{{
+<!--start image-->
+<a href="http://commons.wikimedia.org/wiki/File:Saguinus_midas_flk24863753.jpg"><img src="goldenhandedtamarin.jpg" width="230" height="172" alt="An Golden-handed Tamarin" border="0"></a><br>
+<span class="imagetitle">A Golden-handed Tamarin</span><br>
+<span class="attribution">Image from <a href="http://commons.wikimedia.org/wiki/File:Saguinus_midas_flk24863753.jpg">Wikimedia Commons</a> by <a href="http://www.flickr.com/photos/frank-wouters/24863753/">Frank Wouters</a>,<br>
+resized and still under <a href="http://creativecommons.org/licenses/by/2.0/">CC-BY license</a>.</span>
+<!--end image-->
+}}}
