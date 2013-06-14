@@ -62,7 +62,11 @@ By this point, your web server is ready and capable of serving Python CGI script
 
 ===5) Download Tamarin===
 
-See the download page for a latest version.  The zip file should contain 3 directories: cgi-bin/, htdocs/, and tamarin/
+You can use SVN to download or checkout the latest copy from this repository.  
+
+Or, you can download a recent version as a zip: [http://zach.tomaszewski.name/tamarin/Tamarin-10Oct2013.zip Tamarin-10Oct2013.zip]  
+
+The zip file should contain 3 directories: cgi-bin/, htdocs/, and tamarin/
 
 ===6) Install Tamarin's .py scripts===
 
