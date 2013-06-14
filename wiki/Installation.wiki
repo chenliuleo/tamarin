@@ -93,8 +93,8 @@ See the first half of tamarin/tamarin.py for all global settings and variables  
 Be sure to test any changes by creating a test user and uploading a sample files and making sure that Tamarin correctly finishes grading it and stores the output correctly.
 
 ==Security==
-* Tamarin user passwords are not encrypted.
-* ...
+ * Tamarin user passwords are not encrypted.
+ * ...
 
 ==Multiple Tamarins==
 
