@@ -74,7 +74,7 @@ Copy the .py files from the zip's cgi-bin/ into your cgi-bin/ directory (or wher
 
 Based on your experiences from above, you will likely need to adjust the file permissions and update the Python path at the head of the files.  (tamarin.py and any Tamarin file that starts with core_ is a module file and so it does not need an initial #! line.)
 
-To check that your edits worked, try opening cgi-bin/upload.py in your web browser.  (It might look a little clunky at this point, but you should at least see a couple form fields and not an error message.)
+To check that your edits worked, try opening cgi-bin/upload.py in your web browser.  (It might look a little clunky at this point, but you should at least see a couple form fields and not an error message.  If running on Linux, you may need to check the files' line-endings as described in the comments below.)
 
 ===7) Install Tamarin's .html files===
 
